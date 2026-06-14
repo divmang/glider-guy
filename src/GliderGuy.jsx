@@ -58,21 +58,21 @@ const IMG_SRCS = {
   ground:    "/img/ground.png",
   player:    "/img/player.png",
   pillar:    "/img/pillar.png",
-  windBurst: "/img/wind-burst.png",
   uiPanel:   "/img/ui-panel.png",
 };
 let imgsLoaded = false;
 function loadImages(cb) {
   if (imgsLoaded) { cb(); return; }
   let count = 0, total = Object.keys(IMG_SRCS).length;
-  console.log("Loading", total, "images...");
   for (const [k, src] of Object.entries(IMG_SRCS)) {
     const img = new Image();
-    img.onload  = () => { IMGS[k]=img; count++; console.log("✅ loaded:", src); if(count===total){ imgsLoaded=true; cb(); } };
-    img.onerror = () => { IMGS[k]=null; count++; console.warn("❌ failed:", src); if(count===total){ imgsLoaded=true; cb(); } };
+    img.onload  = () => { IMGS[k]=img; count++; if(count===total){ imgsLoaded=true; cb(); } };
+    img.onerror = () => { IMGS[k]=null; count++; if(count===total){ imgsLoaded=true; cb(); } };
     img.src = src;
   }
 }
+// Preload immediately on module load so images are ready before first game
+loadImages(() => {});
 
 // ─── canvas rr ───────────────────────────────────────────────
 function rr(ctx,x,y,w,h,r=5){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
@@ -101,7 +101,7 @@ function getSessionId() { try { let id=localStorage.getItem("gg_sid"); if(!id){i
 function pushAd(el) { try { if(el&&window.adsbygoogle)(window.adsbygoogle=window.adsbygoogle||[]).push({}); } catch {} }
 
 function newGame(W, H) {
-  return { W, H, frame:0, score:0,
+  return { W, H, frame:0, score:0, scrollX:0,
     ply: { x:-60, y:H*0.38, vy:-1.2, dead:false },
     pillars:[], pillarTimer:60,
     blasts:[], particles:[],
@@ -314,16 +314,19 @@ export default function GliderGuy() {
     if (g.state === "intro") {
       g.ply.x += 4.5; g.ply.vy += GRAVITY*0.45; g.ply.y += g.ply.vy;
       g.ply.y = Math.max(40, Math.min(g.ply.y, groundY-30));
+      g.scrollX += gameSpeed(g.score);
       if (g.ply.x >= W*PLY_X) { g.ply.x=W*PLY_X; g.ply.vy=0; g.state="countdown"; }
       return;
     }
     if (g.state === "countdown") {
       g.ply.vy = Math.sin(g.frame*0.08)*0.4; g.ply.y += g.ply.vy;
+      g.scrollX += gameSpeed(g.score);
       return;
     }
     if (g.state !== "playing") return;
 
     g.ply.vy = Math.min(g.ply.vy + GRAVITY, 14); g.ply.y += g.ply.vy;
+    g.scrollX += gameSpeed(g.score);
     if (g.ply.y - 15 < 0) { g.ply.y=15; g.ply.vy=1.5; }
     if (g.ply.y + 15 > groundY) { die(g); return; }
 
@@ -343,98 +346,80 @@ export default function GliderGuy() {
     for (let i=g.particles.length-1;i>=0;i--) { const p=g.particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.22; p.life-=0.025; if(p.life<=0)g.particles.splice(i,1); }
   }
 
-  // ── DRAW ─────────────────────────────────────────────────────
   function draw(ctx, g) {
-    const { W, H, frame:f, ply, pillars, blasts, particles } = g;
+    const { W, H, frame:f, ply, pillars, blasts, particles, scrollX } = g;
     ctx.clearRect(0,0,W,H);
     const groundY = H - BTN_ZONE_H;
-    if (f === 1) console.log("IMGS at frame 1:", Object.fromEntries(Object.entries(IMGS).map(([k,v])=>[k,v?"ok":"null"])));
 
-    // ── BACKGROUND SKY (static, full canvas) ──
+    // ── BACKGROUND SKY ──
     if (IMGS.bgSky) {
       ctx.drawImage(IMGS.bgSky, 0, 0, W, groundY);
     } else {
-      // fallback gradient
       const skyG=ctx.createLinearGradient(0,0,0,groundY);
       skyG.addColorStop(0,"#1a0f3a"); skyG.addColorStop(0.4,"#3d1f5c"); skyG.addColorStop(0.7,"#c4622d"); skyG.addColorStop(1,"#e8a23a");
       ctx.fillStyle=skyG; ctx.fillRect(0,0,W,groundY);
     }
 
-    // ── FAR HILLS (slow parallax, 20% speed) ──
+    // ── FAR HILLS (15% scroll speed) ──
     if (IMGS.hillsFar) {
-      const iw = IMGS.hillsFar.naturalWidth || W;
-      const ih = IMGS.hillsFar.naturalHeight || groundY*0.4;
-      const scale = W / iw;
-      const dh = ih * scale;
-      const dy = groundY - dh;
-      const offFar = (f * gameSpeed(g.score) * 0.15) % W;
-      ctx.drawImage(IMGS.hillsFar, -offFar,       dy, W+1, dh);
-      ctx.drawImage(IMGS.hillsFar, W - offFar,    dy, W+1, dh);
+      const iw=IMGS.hillsFar.naturalWidth||W, ih=IMGS.hillsFar.naturalHeight||groundY*0.4;
+      const dh=(W/iw)*ih, dy=groundY-dh;
+      const off=(scrollX*0.15)%W;
+      ctx.drawImage(IMGS.hillsFar, -off,   dy, W+1, dh);
+      ctx.drawImage(IMGS.hillsFar, W-off,  dy, W+1, dh);
     } else {
-      // fallback painted hills
-      const hB=groundY, hMH=groundY*0.38;
+      const hB=groundY,hMH=groundY*0.38;
       ctx.fillStyle="#2a4a20"; ctx.beginPath(); ctx.moveTo(0,hB);
       for(const[rx,rh]of[[0,.4],[.1,.65],[.2,.38],[.32,.72],[.44,.5],[.56,.85],[.68,.52],[.78,.68],[.88,.4],[1,.55]])
-        ctx.lineTo(rx*W, hB-rh*hMH);
+        ctx.lineTo(rx*W,hB-rh*hMH);
       ctx.lineTo(W,hB); ctx.closePath(); ctx.fill();
     }
 
-    // ── CLOUDS (medium parallax, 40% speed) ──
+    // ── CLOUDS (35% scroll speed) ──
     if (IMGS.clouds) {
-      const iw = IMGS.clouds.naturalWidth || W;
-      const ih = IMGS.clouds.naturalHeight || groundY*0.3;
-      const dh = (W / iw) * ih;
-      const offCloud = (f * gameSpeed(g.score) * 0.35) % W;
-      ctx.globalAlpha = 0.85;
-      ctx.drawImage(IMGS.clouds, -offCloud,    groundY*0.02, W+1, dh);
-      ctx.drawImage(IMGS.clouds, W - offCloud, groundY*0.02, W+1, dh);
-      ctx.globalAlpha = 1;
+      const iw=IMGS.clouds.naturalWidth||W, ih=IMGS.clouds.naturalHeight||groundY*0.3;
+      const dh=(W/iw)*ih;
+      const off=(scrollX*0.35)%W;
+      ctx.globalAlpha=0.85;
+      ctx.drawImage(IMGS.clouds, -off,   groundY*0.02, W+1, dh);
+      ctx.drawImage(IMGS.clouds, W-off,  groundY*0.02, W+1, dh);
+      ctx.globalAlpha=1;
     } else {
-      // fallback soft clouds
-      const cOff=(f*gameSpeed(g.score)*0.35)%W;
+      const off=(scrollX*0.35)%W;
       ctx.fillStyle="#ffffff18";
       for(const[rx,ry,cw,ch]of[[.08,.06,90,22],[.38,.04,130,28],[.65,.10,80,20],[.22,.17,100,18]]){
-        const cx=((rx*W+cOff)%W);
+        const cx=((rx*W+off)%W);
         ctx.beginPath();ctx.ellipse(cx,ry*groundY,cw,ch,0,0,Math.PI*2);ctx.fill();
         ctx.beginPath();ctx.ellipse(cx-W,ry*groundY,cw,ch,0,0,Math.PI*2);ctx.fill();
       }
     }
 
-    // ── NEAR HILLS (faster parallax, 70% speed) ──
+    // ── NEAR HILLS (65% scroll speed) ──
     if (IMGS.hillsNear) {
-      const iw = IMGS.hillsNear.naturalWidth || W;
-      const ih = IMGS.hillsNear.naturalHeight || groundY*0.25;
-      const dh = (W / iw) * ih;
-      const dy = groundY - dh;
-      const offNear = (f * gameSpeed(g.score) * 0.65) % W;
-      ctx.drawImage(IMGS.hillsNear, -offNear,    dy, W+1, dh);
-      ctx.drawImage(IMGS.hillsNear, W - offNear, dy, W+1, dh);
+      const iw=IMGS.hillsNear.naturalWidth||W, ih=IMGS.hillsNear.naturalHeight||groundY*0.25;
+      const dh=(W/iw)*ih, dy=groundY-dh;
+      const off=(scrollX*0.65)%W;
+      ctx.drawImage(IMGS.hillsNear, -off,  dy, W+1, dh);
+      ctx.drawImage(IMGS.hillsNear, W-off, dy, W+1, dh);
     } else {
-      const hB=groundY, hMH=groundY*0.22;
-      const offN=(f*gameSpeed(g.score)*0.65)%W;
+      const hB=groundY,hMH=groundY*0.22;
+      const off=(scrollX*0.65)%W;
       ctx.fillStyle="#1a3a14";
-      ctx.save(); ctx.translate(-offN,0);
-      ctx.beginPath(); ctx.moveTo(0,hB);
-      for(const[rx,rh]of[[0,.6],[.12,.9],[.22,.55],[.35,.95],[.48,.7],[.60,.88],[.72,.58],[.85,.80],[.95,.62],[1.05,.75],[1.15,.9],[1.25,.6]])
-        ctx.lineTo(rx*W*1.25, hB-rh*hMH);
-      ctx.lineTo(W*1.25,hB); ctx.closePath(); ctx.fill();
-      ctx.restore();
-      ctx.save(); ctx.translate(W-offN,0);
-      ctx.beginPath(); ctx.moveTo(0,hB);
-      for(const[rx,rh]of[[0,.6],[.12,.9],[.22,.55],[.35,.95],[.48,.7],[.60,.88],[.72,.58],[.85,.80],[.95,.62],[1.05,.75],[1.15,.9],[1.25,.6]])
-        ctx.lineTo(rx*W*1.25, hB-rh*hMH);
-      ctx.lineTo(W*1.25,hB); ctx.closePath(); ctx.fill();
-      ctx.restore();
+      for(const dx of [-off, W-off]) {
+        ctx.save(); ctx.translate(dx,0); ctx.beginPath(); ctx.moveTo(0,hB);
+        for(const[rx,rh]of[[0,.6],[.12,.9],[.22,.55],[.35,.95],[.48,.7],[.60,.88],[.72,.58],[.85,.80],[.95,.62],[1.05,.75]])
+          ctx.lineTo(rx*W,hB-rh*hMH);
+        ctx.lineTo(W,hB); ctx.closePath(); ctx.fill(); ctx.restore();
+      }
     }
 
-    // ── GROUND STRIP ──
+    // ── GROUND (100% scroll speed) ──
     if (IMGS.ground) {
-      const iw = IMGS.ground.naturalWidth || W;
-      const ih = IMGS.ground.naturalHeight || BTN_ZONE_H;
-      const dh = (W / iw) * ih;
-      const offG = (f * gameSpeed(g.score)) % W;
-      ctx.drawImage(IMGS.ground, -offG,    groundY, W+1, dh);
-      ctx.drawImage(IMGS.ground, W - offG, groundY, W+1, dh);
+      const iw=IMGS.ground.naturalWidth||W, ih=IMGS.ground.naturalHeight||BTN_ZONE_H;
+      const dh=(W/iw)*ih;
+      const off=scrollX%W;
+      ctx.drawImage(IMGS.ground, -off,  groundY, W+1, dh);
+      ctx.drawImage(IMGS.ground, W-off, groundY, W+1, dh);
     } else {
       const gG=ctx.createLinearGradient(0,groundY,0,H);
       gG.addColorStop(0,"#3a6b1a"); gG.addColorStop(0.15,"#1c3c0c"); gG.addColorStop(1,"#0b1a06");
@@ -451,20 +436,15 @@ export default function GliderGuy() {
     for (const p of pillars) {
       const botY=p.topH+p.gap, botH=groundY-botY;
       if (IMGS.pillar) {
-        // top pillar — flip vertically
         if (p.topH > 0) {
           ctx.save();
-          ctx.translate(p.x + PILLAR_W/2, p.topH/2);
+          ctx.translate(p.x+PILLAR_W/2, p.topH/2);
           ctx.scale(1,-1);
           ctx.drawImage(IMGS.pillar, -PILLAR_W/2, -p.topH/2, PILLAR_W, p.topH);
           ctx.restore();
         }
-        // bottom pillar — normal orientation
-        if (botH > 0) {
-          ctx.drawImage(IMGS.pillar, p.x, botY, PILLAR_W, botH);
-        }
+        if (botH > 0) ctx.drawImage(IMGS.pillar, p.x, botY, PILLAR_W, botH);
       } else {
-        // fallback canvas pillars
         const pb=(px,py,ph)=>{if(ph<=0)return;const pg=ctx.createLinearGradient(px,0,px+PILLAR_W,0);pg.addColorStop(0,"#3a5c28");pg.addColorStop(.3,"#6ab04c");pg.addColorStop(.7,"#4a9038");pg.addColorStop(1,"#2a4a1c");ctx.fillStyle=pg;rr(ctx,px,py,PILLAR_W,ph,4);ctx.fill();};
         const pc=(px,py)=>{ctx.fillStyle="#1a3a0a";rr(ctx,px-8,py,PILLAR_W+16,20,5);ctx.fill();ctx.fillStyle="#5ac040";ctx.fillRect(px-8,py,PILLAR_W+16,5);};
         pb(p.x,0,p.topH); pc(p.x,p.topH-20);
@@ -472,40 +452,31 @@ export default function GliderGuy() {
       }
     }
 
-    // ── WIND BURST / BLASTS ──
-    for (const b of blasts) {
-      ctx.globalAlpha = Math.max(0, b.life);
-      if (IMGS.windBurst) {
-        const s = b.r * 6;
-        ctx.drawImage(IMGS.windBurst, b.x - s/2, b.y - s/2, s, s);
-      } else {
-        ctx.fillStyle=`hsl(${b.hue},100%,72%)`; ctx.shadowColor=`hsl(${b.hue},100%,60%)`; ctx.shadowBlur=12;
-        ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
-        ctx.shadowBlur=0;
-      }
+    // ── BLASTS (simple circles, no wind-burst sprite) ──
+    for(const b of blasts){
+      ctx.globalAlpha=Math.max(0,b.life);
+      ctx.fillStyle=`hsl(${b.hue},80%,75%)`; ctx.shadowColor=`hsl(${b.hue},80%,60%)`; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
     }
     ctx.globalAlpha=1; ctx.shadowBlur=0;
 
-    // particles (death explosion — keep as coloured circles)
+    // ── PARTICLES ──
     for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=`hsl(${p.hue},80%,65%)`;ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();}
     ctx.globalAlpha=1;
 
     // ── PLAYER ──
     if (!ply.dead) {
       const {x,y,vy}=ply;
-      const tilt = Math.max(-0.38, Math.min(0.38, vy*0.040));
+      const tilt=Math.max(-0.38,Math.min(0.38,vy*0.040));
       if (IMGS.player) {
-        // sprite: ~80px wide, proportional height
-        const pw = 88, ph = pw * (IMGS.player.naturalHeight/IMGS.player.naturalWidth || 0.6);
+        const pw=88, ph=pw*(IMGS.player.naturalHeight/IMGS.player.naturalWidth||0.6);
         ctx.save();
-        ctx.translate(x, y);
+        ctx.translate(x,y);
         ctx.rotate(tilt);
-        // gentle wing bob
-        ctx.translate(0, Math.sin(f*0.13)*2);
-        ctx.drawImage(IMGS.player, -pw*0.6, -ph*0.5, pw, ph);
+        ctx.translate(0,Math.sin(f*0.13)*2);
+        ctx.drawImage(IMGS.player,-pw*0.6,-ph*0.5,pw,ph);
         ctx.restore();
       } else {
-        // fallback canvas player
         ctx.save(); ctx.translate(x,y); ctx.rotate(tilt);
         const wa=Math.sin(f*0.13)*0.09;
         for(const side of[-1,1]){ctx.save();ctx.rotate(side*wa);ctx.fillStyle="#e8c060cc";ctx.beginPath();ctx.moveTo(0,2);ctx.lineTo(side*-44,-7);ctx.lineTo(side*-36,13);ctx.closePath();ctx.fill();ctx.strokeStyle="#c09030";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(0,2);ctx.lineTo(side*-44,-7);ctx.stroke();ctx.restore();}
