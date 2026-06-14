@@ -52,7 +52,6 @@ async function submitScore(name, score) {
 const IMGS = {};
 const IMG_SRCS = {
   bgSky:     "/img/bg-sky.png",
-  clouds:    "/img/clouds.png",
   hillsFar:  "/img/hills-far.png",
   hillsNear: "/img/hills-near.png",
   ground:    "/img/ground.png",
@@ -348,8 +347,18 @@ export default function GliderGuy() {
       ctx.drawImage(IMGS.bgSky, 0, 0, W, groundY);
     } else {
       const skyG=ctx.createLinearGradient(0,0,0,groundY);
-      skyG.addColorStop(0,"#1a0f3a"); skyG.addColorStop(0.4,"#3d1f5c"); skyG.addColorStop(0.7,"#c4622d"); skyG.addColorStop(1,"#e8a23a");
+      skyG.addColorStop(0,"#04080f");
+      skyG.addColorStop(0.35,"#080f18");
+      skyG.addColorStop(0.65,"#12180e");
+      skyG.addColorStop(0.85,"#2a1a06");
+      skyG.addColorStop(1,"#4a2808");
       ctx.fillStyle=skyG; ctx.fillRect(0,0,W,groundY);
+      // amber glow from horizon
+      const glow=ctx.createRadialGradient(W*0.5,groundY,0,W*0.5,groundY,W*0.75);
+      glow.addColorStop(0,"rgba(160,80,10,0.55)");
+      glow.addColorStop(0.5,"rgba(80,40,5,0.2)");
+      glow.addColorStop(1,"transparent");
+      ctx.fillStyle=glow; ctx.fillRect(0,0,W,groundY);
     }
 
     // ── FAR HILLS (15% scroll speed) ──
@@ -359,29 +368,19 @@ export default function GliderGuy() {
       const dy=groundY-dh, off=(scrollX*0.15)%dw;
       for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsFar, i*dw-off, dy, dw, dh);
     } else {
-      const hB=groundY,hMH=groundY*0.38;
-      ctx.fillStyle="#2a4a20"; ctx.beginPath(); ctx.moveTo(0,hB);
-      for(const[rx,rh]of[[0,.4],[.1,.65],[.2,.38],[.32,.72],[.44,.5],[.56,.85],[.68,.52],[.78,.68],[.88,.4],[1,.55]])
+      // dark silhouetted ruins fallback
+      const hB=groundY, hMH=groundY*0.40;
+      ctx.fillStyle="#0a0e0a";
+      ctx.beginPath(); ctx.moveTo(0,hB);
+      for(const[rx,rh]of[[0,.3],[.08,.55],[.15,.35],[.25,.70],[.33,.45],[.42,.80],[.52,.50],[.62,.68],[.72,.38],[.82,.60],[.92,.35],[1,.48]])
         ctx.lineTo(rx*W,hB-rh*hMH);
       ctx.lineTo(W,hB); ctx.closePath(); ctx.fill();
-    }
-
-    // ── CLOUDS (35% scroll speed) ──
-    if (IMGS.clouds) {
-      const iw=IMGS.clouds.naturalWidth||1, ih=IMGS.clouds.naturalHeight||1;
-      const dw=W, dh=(iw>0?(dw/iw)*ih:groundY*0.3);
-      const off=(scrollX*0.35)%dw;
-      ctx.globalAlpha=0.85;
-      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.clouds, i*dw-off, groundY*0.02, dw, dh);
-      ctx.globalAlpha=1;
-    } else {
-      const off=(scrollX*0.35)%W;
-      ctx.fillStyle="#ffffff18";
-      for(const[rx,ry,cw,ch]of[[.08,.06,90,22],[.38,.04,130,28],[.65,.10,80,20],[.22,.17,100,18]]){
-        const cx=((rx*W+off)%W);
-        ctx.beginPath();ctx.ellipse(cx,ry*groundY,cw,ch,0,0,Math.PI*2);ctx.fill();
-        ctx.beginPath();ctx.ellipse(cx-W,ry*groundY,cw,ch,0,0,Math.PI*2);ctx.fill();
-      }
+      // amber rim glow on silhouette
+      ctx.fillStyle="rgba(120,60,5,0.18)";
+      ctx.beginPath(); ctx.moveTo(0,hB);
+      for(const[rx,rh]of[[0,.3],[.08,.55],[.15,.35],[.25,.70],[.33,.45],[.42,.80],[.52,.50],[.62,.68],[.72,.38],[.82,.60],[.92,.35],[1,.48]])
+        ctx.lineTo(rx*W,hB-rh*hMH);
+      ctx.lineTo(W,hB); ctx.closePath(); ctx.fill();
     }
 
     // ── NEAR HILLS (65% scroll speed) ──
@@ -391,9 +390,17 @@ export default function GliderGuy() {
       const dy=groundY-dh, off=(scrollX*0.65)%dw;
       for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsNear, i*dw-off, dy, dw, dh);
     } else {
-      const hB=groundY,hMH=groundY*0.22;
+      const hB=groundY, hMH=groundY*0.22;
       const off=(scrollX*0.65)%W;
-      ctx.fillStyle="#1a3a14";
+      ctx.fillStyle="#060a06";
+      for(const dx of [-off, W-off]) {
+        ctx.save(); ctx.translate(dx,0); ctx.beginPath(); ctx.moveTo(0,hB);
+        for(const[rx,rh]of[[0,.6],[.12,.9],[.22,.55],[.35,.95],[.48,.7],[.60,.88],[.72,.58],[.85,.80],[.95,.62],[1.05,.75]])
+          ctx.lineTo(rx*W,hB-rh*hMH);
+        ctx.lineTo(W,hB); ctx.closePath(); ctx.fill(); ctx.restore();
+      }
+      // amber edge glow
+      ctx.fillStyle="rgba(140,70,5,0.22)";
       for(const dx of [-off, W-off]) {
         ctx.save(); ctx.translate(dx,0); ctx.beginPath(); ctx.moveTo(0,hB);
         for(const[rx,rh]of[[0,.6],[.12,.9],[.22,.55],[.35,.95],[.48,.7],[.60,.88],[.72,.58],[.85,.80],[.95,.62],[1.05,.75]])
@@ -409,15 +416,17 @@ export default function GliderGuy() {
       const off=scrollX%dw;
       for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.ground, i*dw-off, groundY, dw, dh);
     } else {
+      // dark cracked stone ground fallback
       const gG=ctx.createLinearGradient(0,groundY,0,H);
-      gG.addColorStop(0,"#3a6b1a"); gG.addColorStop(0.15,"#1c3c0c"); gG.addColorStop(1,"#0b1a06");
+      gG.addColorStop(0,"#1a1008"); gG.addColorStop(0.3,"#0e0a04"); gG.addColorStop(1,"#050302");
       ctx.fillStyle=gG; ctx.fillRect(0,groundY,W,BTN_ZONE_H);
-      ctx.fillStyle="#5ed422"; ctx.fillRect(0,groundY,W,5);
+      // amber edge line
+      ctx.fillStyle="rgba(160,80,10,0.5)"; ctx.fillRect(0,groundY,W,2);
     }
 
     // button zone dark overlay
     const btnG=ctx.createLinearGradient(0,groundY,0,H);
-    btnG.addColorStop(0,"rgba(0,0,0,0.25)"); btnG.addColorStop(1,"rgba(0,0,0,0.55)");
+    btnG.addColorStop(0,"rgba(0,0,0,0.4)"); btnG.addColorStop(1,"rgba(0,0,0,0.7)");
     ctx.fillStyle=btnG; ctx.fillRect(0,groundY,W,BTN_ZONE_H);
 
     // ── PILLARS ──
@@ -433,9 +442,21 @@ export default function GliderGuy() {
         }
         if (botH > 0) ctx.drawImage(IMGS.pillar, p.x, botY, PILLAR_W, botH);
       } else {
-        const pb=(px,py,ph)=>{if(ph<=0)return;const pg=ctx.createLinearGradient(px,0,px+PILLAR_W,0);pg.addColorStop(0,"#3a5c28");pg.addColorStop(.3,"#6ab04c");pg.addColorStop(.7,"#4a9038");pg.addColorStop(1,"#2a4a1c");ctx.fillStyle=pg;rr(ctx,px,py,PILLAR_W,ph,4);ctx.fill();};
-        const pc=(px,py)=>{ctx.fillStyle="#1a3a0a";rr(ctx,px-8,py,PILLAR_W+16,20,5);ctx.fill();ctx.fillStyle="#5ac040";ctx.fillRect(px-8,py,PILLAR_W+16,5);};
-        pb(p.x,0,p.topH); pc(p.x,p.topH-20);
+        // dark stone pillar fallback
+        const pb=(px,py,ph)=>{
+          if(ph<=0)return;
+          const pg=ctx.createLinearGradient(px,0,px+PILLAR_W,0);
+          pg.addColorStop(0,"#1a1208"); pg.addColorStop(0.3,"#2e2010"); pg.addColorStop(0.7,"#221808"); pg.addColorStop(1,"#120e04");
+          ctx.fillStyle=pg; rr(ctx,px,py,PILLAR_W,ph,3); ctx.fill();
+          // amber rim light
+          ctx.fillStyle="rgba(180,90,10,0.15)"; ctx.fillRect(px,py,3,ph);
+          ctx.fillStyle="rgba(180,90,10,0.08)"; ctx.fillRect(px+PILLAR_W-3,py,3,ph);
+        };
+        const pc=(px,py)=>{
+          ctx.fillStyle="#0e0a04"; rr(ctx,px-6,py,PILLAR_W+12,16,4); ctx.fill();
+          ctx.fillStyle="rgba(160,80,10,0.4)"; ctx.fillRect(px-6,py,PILLAR_W+12,2);
+        };
+        pb(p.x,0,p.topH); pc(p.x,p.topH-16);
         if(botH>0){pb(p.x,botY,botH);pc(p.x,botY);}
       }
     }
