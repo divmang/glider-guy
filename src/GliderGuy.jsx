@@ -489,8 +489,6 @@ export default function GliderGuy() {
         if (p.topH > 0) drawPillar(p.x, 0, p.topH, true);
         if (botH > 0)   drawPillar(p.x, botY, botH, false);
       } else {
-
-      } else {
         // dark stone pillar fallback
         const pb=(px,py,ph)=>{
           if(ph<=0)return;
