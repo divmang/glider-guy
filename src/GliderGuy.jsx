@@ -81,10 +81,9 @@ const GRAVITY         = 0.32;
 const BTN_ZONE_H      = 110;   // bottom button zone height
 const PLY_X           = 0.22;
 const PILLAR_W        = 80;   // draw width
-const PILLAR_HIT      = 44;   // collision width (shaft only, not decorative cap)
-const PILLAR_CAP_H    = 52;   // px the cap visually intrudes into the gap — shrinks vertical hitbox
-const PILLAR_GAP_BASE = 165;
-const PILLAR_GAP_MIN  = 105;
+const PILLAR_HIT      = 40;   // collision width (shaft only)
+const PILLAR_GAP_BASE = 155;
+const PILLAR_GAP_MIN  = 95;
 const BASE_SPEED      = 2.6;
 const MAX_SPEED       = 6.2;
 const TOP_N           = 50;
@@ -153,12 +152,22 @@ export default function GliderGuy() {
   useEffect(() => {
     const audio = audioRef.current; if (!audio) return;
     audio.loop = true; audio.volume = 0.55;
+    audio.load(); // needed for multi-source <audio> on iOS
     const tryPlay = () => audio.play().catch(()=>{});
+    // try on any user interaction anywhere on the page
     document.addEventListener("touchstart", tryPlay, {once:true});
     document.addEventListener("mousedown",  tryPlay, {once:true});
+    document.addEventListener("touchend",   tryPlay, {once:true});
+    document.addEventListener("click",      tryPlay, {once:true});
     const onVis = () => { if(document.hidden) audio.pause(); else if(!audio.muted) audio.play().catch(()=>{}); };
     document.addEventListener("visibilitychange", onVis);
-    return () => { document.removeEventListener("touchstart",tryPlay); document.removeEventListener("mousedown",tryPlay); document.removeEventListener("visibilitychange",onVis); };
+    return () => {
+      document.removeEventListener("touchstart", tryPlay);
+      document.removeEventListener("mousedown",  tryPlay);
+      document.removeEventListener("touchend",   tryPlay);
+      document.removeEventListener("click",      tryPlay);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, []);
   function toggleMute() {
     const a=audioRef.current; if(!a) return;
@@ -368,11 +377,14 @@ export default function GliderGuy() {
       if (p.x < -PILLAR_W-10) g.pillars.splice(i,1);
     }
     for (const p of g.pillars) {
-      const hitX    = p.x + (PILLAR_W - PILLAR_HIT) / 2;
-      // shrink vertical hitbox inward by cap height on both sides
-      const hitTopY = p.topH - PILLAR_CAP_H;   // top pillar: cap hangs down, so collision ends higher
-      const hitBotY = p.topH + p.gap + PILLAR_CAP_H; // bottom pillar: cap sticks up, collision starts lower
-      if (g.ply.x+12>hitX && g.ply.x-12<hitX+PILLAR_HIT && (g.ply.y-12<hitTopY || g.ply.y+12>hitBotY)) { die(g); return; }
+      // pillar hitbox: centered horizontally on drawn pillar
+      const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
+      // player hitbox: small circle at logical center (matches rider body in sprite)
+      const pr = 10; // player collision radius
+      if (g.ply.x+pr > hitX && g.ply.x-pr < hitX+PILLAR_HIT &&
+          (g.ply.y-pr < p.topH || g.ply.y+pr > p.topH+p.gap)) {
+        die(g); return;
+      }
     }
 
     for (let i=g.particles.length-1;i>=0;i--) { const p=g.particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.22; p.life-=0.025; if(p.life<=0)g.particles.splice(i,1); }
@@ -560,7 +572,8 @@ export default function GliderGuy() {
         ctx.translate(x,y);
         ctx.rotate(tilt);
         ctx.translate(0,Math.sin(f*0.13)*2);
-        ctx.drawImage(IMGS.player,-pw*0.6,-ph*0.5,pw,ph);
+        // draw so rider body (at ~65% from left) aligns with logical center x
+        ctx.drawImage(IMGS.player, -pw*0.65, -ph*0.5, pw, ph);
         ctx.restore();
       } else {
         ctx.save(); ctx.translate(x,y); ctx.rotate(tilt);
@@ -595,6 +608,8 @@ export default function GliderGuy() {
   }
 
   function handlePlay() {
+    // attempt music start — this is inside a direct user gesture so iOS allows it
+    if (audioRef.current) audioRef.current.play().catch(()=>{});
     setDispScore(0); setScreen("intro");
     requestAnimationFrame(startGame);
     setTimeout(() => {
