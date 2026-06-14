@@ -718,7 +718,10 @@ export default function GliderGuy() {
   // ── RENDER ───────────────────────────────────────────────────
   return (
     <div style={{width:"100vw",height:"100dvh",background:"#040c14",position:"relative",userSelect:"none",WebkitUserSelect:"none",fontFamily:ff,overflow:"hidden"}}>
-      <audio ref={audioRef} src="/8bit_Bossa.mp3" loop preload="auto"/>
+      <audio ref={audioRef} loop preload="auto">
+        <source src="/dark-ambience.ogg" type="audio/ogg"/>
+        <source src="/dark-ambience.mp3" type="audio/mpeg"/>
+      </audio>
 
       {/* canvas — only interactive during play, never intercepts menu taps */}
       <canvas ref={canvasRef}
