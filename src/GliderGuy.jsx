@@ -104,7 +104,7 @@ function newGame(W, H) {
   return { W, H, frame:0, score:0, scrollX:0,
     ply: { x:-60, y:H*0.38, vy:-1.2, dead:false },
     pillars:[], pillarTimer:60,
-    blasts:[], particles:[],
+    particles:[],
     state:"intro"
   };
 }
@@ -278,14 +278,7 @@ export default function GliderGuy() {
   // ── BOOST (main button) ──────────────────────────────────────
   function boost() {
     if (!gRef.current || gRef.current.state !== "playing") return;
-    const g = gRef.current;
-    g.ply.vy = Math.max(g.ply.vy - 7.5, -12);
-    // air blast particles from bottom
-    for (let i=0; i<12; i++) {
-      g.blasts.push({ x:g.ply.x + (Math.random()-0.5)*30, y:g.H - BTN_ZONE_H,
-        vx:(Math.random()-0.5)*4, vy:-(Math.random()*6+3),
-        life:1, r:Math.random()*5+2, hue:190+Math.random()*50 });
-    }
+    gRef.current.ply.vy = Math.max(gRef.current.ply.vy - 7.5, -12);
   }
 
   function die(g) {
@@ -342,12 +335,11 @@ export default function GliderGuy() {
       if (g.ply.x+13>p.x && g.ply.x-13<p.x+PILLAR_W && (g.ply.y-13<p.topH || g.ply.y+13>p.topH+p.gap)) { die(g); return; }
     }
 
-    for (let i=g.blasts.length-1;i>=0;i--) { const b=g.blasts[i]; b.x+=b.vx; b.y+=b.vy; b.vy+=0.3; b.life-=0.06; b.r*=0.96; if(b.life<=0)g.blasts.splice(i,1); }
     for (let i=g.particles.length-1;i>=0;i--) { const p=g.particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.22; p.life-=0.025; if(p.life<=0)g.particles.splice(i,1); }
   }
 
   function draw(ctx, g) {
-    const { W, H, frame:f, ply, pillars, blasts, particles, scrollX } = g;
+    const { W, H, frame:f, ply, pillars, particles, scrollX } = g;
     ctx.clearRect(0,0,W,H);
     const groundY = H - BTN_ZONE_H;
 
@@ -362,11 +354,10 @@ export default function GliderGuy() {
 
     // ── FAR HILLS (15% scroll speed) ──
     if (IMGS.hillsFar) {
-      const iw=IMGS.hillsFar.naturalWidth||W, ih=IMGS.hillsFar.naturalHeight||groundY*0.4;
-      const dh=(W/iw)*ih, dy=groundY-dh;
-      const off=(scrollX*0.15)%W;
-      ctx.drawImage(IMGS.hillsFar, -off,   dy, W+1, dh);
-      ctx.drawImage(IMGS.hillsFar, W-off,  dy, W+1, dh);
+      const iw=IMGS.hillsFar.naturalWidth||1, ih=IMGS.hillsFar.naturalHeight||1;
+      const dw=W, dh=(iw>0?(dw/iw)*ih:groundY*0.4);
+      const dy=groundY-dh, off=(scrollX*0.15)%dw;
+      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsFar, i*dw-off, dy, dw, dh);
     } else {
       const hB=groundY,hMH=groundY*0.38;
       ctx.fillStyle="#2a4a20"; ctx.beginPath(); ctx.moveTo(0,hB);
@@ -377,12 +368,11 @@ export default function GliderGuy() {
 
     // ── CLOUDS (35% scroll speed) ──
     if (IMGS.clouds) {
-      const iw=IMGS.clouds.naturalWidth||W, ih=IMGS.clouds.naturalHeight||groundY*0.3;
-      const dh=(W/iw)*ih;
-      const off=(scrollX*0.35)%W;
+      const iw=IMGS.clouds.naturalWidth||1, ih=IMGS.clouds.naturalHeight||1;
+      const dw=W, dh=(iw>0?(dw/iw)*ih:groundY*0.3);
+      const off=(scrollX*0.35)%dw;
       ctx.globalAlpha=0.85;
-      ctx.drawImage(IMGS.clouds, -off,   groundY*0.02, W+1, dh);
-      ctx.drawImage(IMGS.clouds, W-off,  groundY*0.02, W+1, dh);
+      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.clouds, i*dw-off, groundY*0.02, dw, dh);
       ctx.globalAlpha=1;
     } else {
       const off=(scrollX*0.35)%W;
@@ -396,11 +386,10 @@ export default function GliderGuy() {
 
     // ── NEAR HILLS (65% scroll speed) ──
     if (IMGS.hillsNear) {
-      const iw=IMGS.hillsNear.naturalWidth||W, ih=IMGS.hillsNear.naturalHeight||groundY*0.25;
-      const dh=(W/iw)*ih, dy=groundY-dh;
-      const off=(scrollX*0.65)%W;
-      ctx.drawImage(IMGS.hillsNear, -off,  dy, W+1, dh);
-      ctx.drawImage(IMGS.hillsNear, W-off, dy, W+1, dh);
+      const iw=IMGS.hillsNear.naturalWidth||1, ih=IMGS.hillsNear.naturalHeight||1;
+      const dw=W, dh=(iw>0?(dw/iw)*ih:groundY*0.25);
+      const dy=groundY-dh, off=(scrollX*0.65)%dw;
+      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsNear, i*dw-off, dy, dw, dh);
     } else {
       const hB=groundY,hMH=groundY*0.22;
       const off=(scrollX*0.65)%W;
@@ -415,11 +404,10 @@ export default function GliderGuy() {
 
     // ── GROUND (100% scroll speed) ──
     if (IMGS.ground) {
-      const iw=IMGS.ground.naturalWidth||W, ih=IMGS.ground.naturalHeight||BTN_ZONE_H;
-      const dh=(W/iw)*ih;
-      const off=scrollX%W;
-      ctx.drawImage(IMGS.ground, -off,  groundY, W+1, dh);
-      ctx.drawImage(IMGS.ground, W-off, groundY, W+1, dh);
+      const iw=IMGS.ground.naturalWidth||1, ih=IMGS.ground.naturalHeight||1;
+      const dw=W, dh=(iw>0?(dw/iw)*ih:BTN_ZONE_H);
+      const off=scrollX%dw;
+      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.ground, i*dw-off, groundY, dw, dh);
     } else {
       const gG=ctx.createLinearGradient(0,groundY,0,H);
       gG.addColorStop(0,"#3a6b1a"); gG.addColorStop(0.15,"#1c3c0c"); gG.addColorStop(1,"#0b1a06");
@@ -451,14 +439,6 @@ export default function GliderGuy() {
         if(botH>0){pb(p.x,botY,botH);pc(p.x,botY);}
       }
     }
-
-    // ── BLASTS (simple circles, no wind-burst sprite) ──
-    for(const b of blasts){
-      ctx.globalAlpha=Math.max(0,b.life);
-      ctx.fillStyle=`hsl(${b.hue},80%,75%)`; ctx.shadowColor=`hsl(${b.hue},80%,60%)`; ctx.shadowBlur=8;
-      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
-    }
-    ctx.globalAlpha=1; ctx.shadowBlur=0;
 
     // ── PARTICLES ──
     for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=`hsl(${p.hue},80%,65%)`;ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();}
