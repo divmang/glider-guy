@@ -1,4 +1,4 @@
-const CACHE = 'glider-guy-v1';
+const CACHE = 'glider-guy-v3';
 const ASSETS = [
   '/',
   '/index.html',
