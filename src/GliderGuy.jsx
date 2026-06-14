@@ -65,10 +65,11 @@ let imgsLoaded = false;
 function loadImages(cb) {
   if (imgsLoaded) { cb(); return; }
   let count = 0, total = Object.keys(IMG_SRCS).length;
+  console.log("Loading", total, "images...");
   for (const [k, src] of Object.entries(IMG_SRCS)) {
     const img = new Image();
-    img.onload  = () => { IMGS[k]=img; count++; if(count===total){ imgsLoaded=true; cb(); } };
-    img.onerror = () => { IMGS[k]=null; count++; if(count===total){ imgsLoaded=true; cb(); } }; // graceful fallback
+    img.onload  = () => { IMGS[k]=img; count++; console.log("✅ loaded:", src); if(count===total){ imgsLoaded=true; cb(); } };
+    img.onerror = () => { IMGS[k]=null; count++; console.warn("❌ failed:", src); if(count===total){ imgsLoaded=true; cb(); } };
     img.src = src;
   }
 }
@@ -346,6 +347,7 @@ export default function GliderGuy() {
     const { W, H, frame:f, ply, pillars, blasts, particles } = g;
     ctx.clearRect(0,0,W,H);
     const groundY = H - BTN_ZONE_H;
+    if (f === 1) console.log("IMGS at frame 1:", Object.fromEntries(Object.entries(IMGS).map(([k,v])=>[k,v?"ok":"null"])));
 
     // ── BACKGROUND SKY (static, full canvas) ──
     if (IMGS.bgSky) {
