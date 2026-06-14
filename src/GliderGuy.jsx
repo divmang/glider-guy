@@ -80,7 +80,7 @@ function rr(ctx,x,y,w,h,r=5){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+
 const GRAVITY         = 0.32;
 const BTN_ZONE_H      = 110;   // bottom button zone height
 const PLY_X           = 0.22;
-const PILLAR_W        = 58;
+const PILLAR_W        = 80;
 const PILLAR_GAP_BASE = 165;
 const PILLAR_GAP_MIN  = 105;
 const BASE_SPEED      = 2.6;
@@ -364,18 +364,24 @@ export default function GliderGuy() {
     // ── FAR HILLS (15% scroll speed) ──
     if (IMGS.hillsFar) {
       const iw=IMGS.hillsFar.naturalWidth||1, ih=IMGS.hillsFar.naturalHeight||1;
-      const dw=W, dh=(iw>0?(dw/iw)*ih:groundY*0.4);
-      const dy=groundY-dh, off=(scrollX*0.15)%dw;
-      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsFar, i*dw-off, dy, dw, dh);
+      // cap height at 55% of sky height so it's always visible
+      const dh=Math.min((W/iw)*ih, groundY*0.55);
+      const dy=groundY-dh, off=(scrollX*0.15)%W;
+      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsFar, i*W-off, dy, W, dh);
+      // fade top edge into sky
+      const fadeH=dh*0.35;
+      const fadeG=ctx.createLinearGradient(0,dy,0,dy+fadeH);
+      fadeG.addColorStop(0,"rgba(0,0,0,1)"); fadeG.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.globalCompositeOperation="destination-out";
+      ctx.fillStyle=fadeG; ctx.fillRect(0,dy,W,fadeH);
+      ctx.globalCompositeOperation="source-over";
     } else {
-      // dark silhouetted ruins fallback
       const hB=groundY, hMH=groundY*0.40;
       ctx.fillStyle="#0a0e0a";
       ctx.beginPath(); ctx.moveTo(0,hB);
       for(const[rx,rh]of[[0,.3],[.08,.55],[.15,.35],[.25,.70],[.33,.45],[.42,.80],[.52,.50],[.62,.68],[.72,.38],[.82,.60],[.92,.35],[1,.48]])
         ctx.lineTo(rx*W,hB-rh*hMH);
       ctx.lineTo(W,hB); ctx.closePath(); ctx.fill();
-      // amber rim glow on silhouette
       ctx.fillStyle="rgba(120,60,5,0.18)";
       ctx.beginPath(); ctx.moveTo(0,hB);
       for(const[rx,rh]of[[0,.3],[.08,.55],[.15,.35],[.25,.70],[.33,.45],[.42,.80],[.52,.50],[.62,.68],[.72,.38],[.82,.60],[.92,.35],[1,.48]])
@@ -386,9 +392,17 @@ export default function GliderGuy() {
     // ── NEAR HILLS (65% scroll speed) ──
     if (IMGS.hillsNear) {
       const iw=IMGS.hillsNear.naturalWidth||1, ih=IMGS.hillsNear.naturalHeight||1;
-      const dw=W, dh=(iw>0?(dw/iw)*ih:groundY*0.25);
-      const dy=groundY-dh, off=(scrollX*0.65)%dw;
-      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsNear, i*dw-off, dy, dw, dh);
+      // cap height at 40% of sky height
+      const dh=Math.min((W/iw)*ih, groundY*0.40);
+      const dy=groundY-dh, off=(scrollX*0.65)%W;
+      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsNear, i*W-off, dy, W, dh);
+      // fade top edge into sky — stronger fade than far hills
+      const fadeH=dh*0.45;
+      const fadeG=ctx.createLinearGradient(0,dy,0,dy+fadeH);
+      fadeG.addColorStop(0,"rgba(0,0,0,1)"); fadeG.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.globalCompositeOperation="destination-out";
+      ctx.fillStyle=fadeG; ctx.fillRect(0,dy,W,fadeH);
+      ctx.globalCompositeOperation="source-over";
     } else {
       const hB=groundY, hMH=groundY*0.22;
       const off=(scrollX*0.65)%W;
@@ -412,9 +426,16 @@ export default function GliderGuy() {
     // ── GROUND (100% scroll speed) ──
     if (IMGS.ground) {
       const iw=IMGS.ground.naturalWidth||1, ih=IMGS.ground.naturalHeight||1;
-      const dw=W, dh=(iw>0?(dw/iw)*ih:BTN_ZONE_H);
-      const off=scrollX%dw;
-      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.ground, i*dw-off, groundY, dw, dh);
+      const dh=Math.min((W/iw)*ih, BTN_ZONE_H*1.5);
+      const off=scrollX%W;
+      for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.ground, i*W-off, groundY, W, dh);
+      // fade top few pixels into the scene
+      const fadeH=Math.min(dh*0.3, 40);
+      const fadeG=ctx.createLinearGradient(0,groundY,0,groundY+fadeH);
+      fadeG.addColorStop(0,"rgba(0,0,0,1)"); fadeG.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.globalCompositeOperation="destination-out";
+      ctx.fillStyle=fadeG; ctx.fillRect(0,groundY,W,fadeH);
+      ctx.globalCompositeOperation="source-over";
     } else {
       // dark cracked stone ground fallback
       const gG=ctx.createLinearGradient(0,groundY,0,H);
