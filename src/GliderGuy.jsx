@@ -451,63 +451,44 @@ export default function GliderGuy() {
     ctx.fillStyle=btnG; ctx.fillRect(0,groundY,W,BTN_ZONE_H);
 
     // ── PILLARS ──
-    for (const p of pillars) {
-      const botY=p.topH+p.gap, botH=groundY-botY;
-      if (IMGS.pillar) {
-        const iw=IMGS.pillar.naturalWidth||199;
-        const ih=IMGS.pillar.naturalHeight||751;
-        // slice the image: cap=top 20%, shaft=mid 68%, base=bottom 12%
-        const capSrcH  = Math.floor(ih*0.20);  // 150px
-        const baseSrcY = Math.floor(ih*0.88);  // 660px
-        const baseSrcH = ih - baseSrcY;         // 91px
-        const shaftSrcY= capSrcH;
-        const shaftSrcH= baseSrcY - capSrcH;   // 510px
-        // draw width scales to PILLAR_W
-        const scale = PILLAR_W / iw;
-        const capH  = Math.round(capSrcH  * scale);  // ~75px drawn
-        const baseH = Math.round(baseSrcH * scale);  // ~46px drawn
-
-        function drawPillarSection(destX, destY, destH, flipped) {
+    // helper defined outside loop (avoids hoisting bug)
+    const _drawPillarSlice = (() => {
+      let _iw,_ih,_capSrcH,_baseSrcY,_baseSrcH,_shaftSrcY,_shaftSrcH,_capH,_baseH;
+      return function init(img) {
+        _iw = img.naturalWidth||199; _ih = img.naturalHeight||751;
+        _capSrcH  = Math.floor(_ih*0.20);
+        _baseSrcY = Math.floor(_ih*0.88);
+        _baseSrcH = _ih - _baseSrcY;
+        _shaftSrcY= _capSrcH;
+        _shaftSrcH= _baseSrcY - _capSrcH;
+        const scale = PILLAR_W / _iw;
+        _capH  = Math.round(_capSrcH  * scale);
+        _baseH = Math.round(_baseSrcH * scale);
+        return function draw(destX, destY, destH, flipped) {
           if (destH <= 0) return;
           ctx.save();
-          ctx.beginPath();
-          ctx.rect(destX, destY, PILLAR_W, destH);
-          ctx.clip();
-
-          const drawY = flipped ? destY + destH : destY;
-          const scaleY = flipped ? -1 : 1;
-          ctx.translate(destX, drawY);
-          ctx.scale(1, scaleY);
-
-          // cap
-          const drawnCapH  = Math.min(capH, destH);
-          ctx.drawImage(IMGS.pillar,
-            0, 0, iw, capSrcH,
-            0, 0, PILLAR_W, drawnCapH);
-
-          // shaft — stretch between cap and base
-          const shaftDestH = Math.max(0, destH - capH - baseH);
-          if (shaftDestH > 0) {
-            ctx.drawImage(IMGS.pillar,
-              0, shaftSrcY, iw, shaftSrcH,
-              0, drawnCapH, PILLAR_W, shaftDestH);
-          }
-
-          // base
-          const baseDestY = destH - baseH;
-          if (baseDestY > drawnCapH) {
-            ctx.drawImage(IMGS.pillar,
-              0, baseSrcY, iw, baseSrcH,
-              0, baseDestY, PILLAR_W, baseH);
-          }
-
+          ctx.beginPath(); ctx.rect(destX, destY, PILLAR_W, destH); ctx.clip();
+          ctx.translate(destX, flipped ? destY+destH : destY);
+          ctx.scale(1, flipped ? -1 : 1);
+          const drawnCapH = Math.min(_capH, destH);
+          ctx.drawImage(img, 0,0,_iw,_capSrcH, 0,0,PILLAR_W,drawnCapH);
+          const shaftH = Math.max(0, destH-_capH-_baseH);
+          if (shaftH>0) ctx.drawImage(img, 0,_shaftSrcY,_iw,_shaftSrcH, 0,drawnCapH,PILLAR_W,shaftH);
+          if (destH-_baseH > drawnCapH) ctx.drawImage(img, 0,_baseSrcY,_iw,_baseSrcH, 0,destH-_baseH,PILLAR_W,_baseH);
           ctx.restore();
-        }
+        };
+      };
+    })();
 
-        // top pillar — flipped so cap faces down
-        if (p.topH > 0) drawPillarSection(p.x, 0, p.topH, true);
-        // bottom pillar — normal, cap faces up
-        if (botH > 0)   drawPillarSection(p.x, botY, botH, false);
+    for (const p of pillars) {
+      // bottom pillar goes all the way to H (full screen), not just groundY
+      const botY = p.topH + p.gap;
+      const botH = H - botY;  // extends behind button zone to screen bottom
+      if (IMGS.pillar) {
+        const drawPillar = _drawPillarSlice(IMGS.pillar);
+        if (p.topH > 0) drawPillar(p.x, 0, p.topH, true);
+        if (botH > 0)   drawPillar(p.x, botY, botH, false);
+      } else {
 
       } else {
         // dark stone pillar fallback
@@ -760,51 +741,53 @@ export default function GliderGuy() {
         </>
       )}
 
-      {/* ── TWO BOTTOM BUTTONS (always visible during play) ── */}
+      {/* ── TWO BOTTOM BUTTONS ── */}
       {isPlaying && (
         <div style={{
           position:"absolute", bottom:0, left:0, right:0,
           height:BTN_ZONE_H,
           display:"flex", alignItems:"center", justifyContent:"center",
-          gap:16, padding:"0 20px",
+          gap:24, padding:"0 32px",
           zIndex:20,
         }}>
-          {/* BOOST button */}
+          {/* BOOST — round gothic button */}
           <button
             onPointerDown={e=>{ e.preventDefault(); boost(); }}
             style={{
-              flex:1, height:70,
-              background:"linear-gradient(135deg,#7bc8a4,#4a9e7a)",
-              border:"2px solid #a8e0c0",
-              borderRadius:20,
-              color:"#fff",
-              fontSize:22, fontWeight:700,
+              width:80, height:80,
+              borderRadius:"50%",
+              background:"radial-gradient(circle at 40% 35%, #5a3a1a, #1a0e04)",
+              border:"2px solid rgba(180,100,20,0.6)",
+              color:"rgba(220,160,60,0.95)",
+              fontSize:13, fontWeight:700,
               fontFamily:ff,
               cursor:"pointer",
-              boxShadow:"0 4px 0 #2a6a4a, 0 0 20px #7bc8a466",
+              boxShadow:"0 0 18px rgba(160,80,10,0.5), inset 0 1px 0 rgba(255,180,60,0.2), 0 4px 0 #0a0500",
               WebkitTapHighlightColor:"transparent",
-              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-              touchAction:"none",
-              textShadow:"0 1px 3px #0005",
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+              touchAction:"none", gap:2, letterSpacing:1,
             }}>
-            💨 FLY
+            <span style={{fontSize:20}}>💨</span>
+            FLY
           </button>
 
-          {/* DISABLED button */}
+          {/* DISABLED — round gothic button */}
           <button
             disabled
             style={{
-              flex:1, height:70,
-              background:"#2a3a2a88",
-              border:"2px dashed #ffffff22",
-              borderRadius:20,
-              color:"#ffffff33", fontSize:16, fontWeight:600,
+              width:80, height:80,
+              borderRadius:"50%",
+              background:"radial-gradient(circle at 40% 35%, #1a1a1a, #0a0a0a)",
+              border:"2px dashed rgba(100,80,50,0.35)",
+              color:"rgba(120,100,60,0.4)",
+              fontSize:13, fontWeight:600,
               fontFamily:ff,
               cursor:"not-allowed",
-              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-              touchAction:"none",
+              display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+              touchAction:"none", gap:2, letterSpacing:1,
             }}>
-            🔒 SOON
+            <span style={{fontSize:20}}>🔒</span>
+            SOON
           </button>
         </div>
       )}
