@@ -433,14 +433,61 @@ export default function GliderGuy() {
     for (const p of pillars) {
       const botY=p.topH+p.gap, botH=groundY-botY;
       if (IMGS.pillar) {
-        if (p.topH > 0) {
+        const iw=IMGS.pillar.naturalWidth||199;
+        const ih=IMGS.pillar.naturalHeight||751;
+        // slice the image: cap=top 20%, shaft=mid 68%, base=bottom 12%
+        const capSrcH  = Math.floor(ih*0.20);  // 150px
+        const baseSrcY = Math.floor(ih*0.88);  // 660px
+        const baseSrcH = ih - baseSrcY;         // 91px
+        const shaftSrcY= capSrcH;
+        const shaftSrcH= baseSrcY - capSrcH;   // 510px
+        // draw width scales to PILLAR_W
+        const scale = PILLAR_W / iw;
+        const capH  = Math.round(capSrcH  * scale);  // ~75px drawn
+        const baseH = Math.round(baseSrcH * scale);  // ~46px drawn
+
+        function drawPillarSection(destX, destY, destH, flipped) {
+          if (destH <= 0) return;
           ctx.save();
-          ctx.translate(p.x+PILLAR_W/2, p.topH/2);
-          ctx.scale(1,-1);
-          ctx.drawImage(IMGS.pillar, -PILLAR_W/2, -p.topH/2, PILLAR_W, p.topH);
+          ctx.beginPath();
+          ctx.rect(destX, destY, PILLAR_W, destH);
+          ctx.clip();
+
+          const drawY = flipped ? destY + destH : destY;
+          const scaleY = flipped ? -1 : 1;
+          ctx.translate(destX, drawY);
+          ctx.scale(1, scaleY);
+
+          // cap
+          const drawnCapH  = Math.min(capH, destH);
+          ctx.drawImage(IMGS.pillar,
+            0, 0, iw, capSrcH,
+            0, 0, PILLAR_W, drawnCapH);
+
+          // shaft — stretch between cap and base
+          const shaftDestH = Math.max(0, destH - capH - baseH);
+          if (shaftDestH > 0) {
+            ctx.drawImage(IMGS.pillar,
+              0, shaftSrcY, iw, shaftSrcH,
+              0, drawnCapH, PILLAR_W, shaftDestH);
+          }
+
+          // base
+          const baseDestY = destH - baseH;
+          if (baseDestY > drawnCapH) {
+            ctx.drawImage(IMGS.pillar,
+              0, baseSrcY, iw, baseSrcH,
+              0, baseDestY, PILLAR_W, baseH);
+          }
+
           ctx.restore();
         }
-        if (botH > 0) ctx.drawImage(IMGS.pillar, p.x, botY, PILLAR_W, botH);
+
+        // top pillar — flipped so cap faces down
+        if (p.topH > 0) drawPillarSection(p.x, 0, p.topH, true);
+        // bottom pillar — normal, cap faces up
+        if (botH > 0)   drawPillarSection(p.x, botY, botH, false);
+
       } else {
         // dark stone pillar fallback
         const pb=(px,py,ph)=>{
