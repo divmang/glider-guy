@@ -51,15 +51,15 @@ async function submitScore(name, score) {
 // ─── image loader ────────────────────────────────────────────
 const IMGS = {};
 const IMG_SRCS = {
-  bgSky:     "/assets/bg-sky.png",
-  clouds:    "/assets/clouds.png",
-  hillsFar:  "/assets/hills-far.png",
-  hillsNear: "/assets/hills-near.png",
-  ground:    "/assets/ground.png",
-  player:    "/assets/player.png",
-  pillar:    "/assets/pillar.png",
-  windBurst: "/assets/wind-burst.png",
-  uiPanel:   "/assets/ui-panel.png",
+  bgSky:     "/img/bg-sky.png",
+  clouds:    "/img/clouds.png",
+  hillsFar:  "/img/hills-far.png",
+  hillsNear: "/img/hills-near.png",
+  ground:    "/img/ground.png",
+  player:    "/img/player.png",
+  pillar:    "/img/pillar.png",
+  windBurst: "/img/wind-burst.png",
+  uiPanel:   "/img/ui-panel.png",
 };
 let imgsLoaded = false;
 function loadImages(cb) {
