@@ -80,7 +80,9 @@ function rr(ctx,x,y,w,h,r=5){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+
 const GRAVITY         = 0.32;
 const BTN_ZONE_H      = 110;   // bottom button zone height
 const PLY_X           = 0.22;
-const PILLAR_W        = 80;
+const PILLAR_W        = 80;   // draw width
+const PILLAR_HIT      = 44;   // collision width (shaft only, not decorative cap)
+const PILLAR_CAP_H    = 52;   // px the cap visually intrudes into the gap — shrinks vertical hitbox
 const PILLAR_GAP_BASE = 165;
 const PILLAR_GAP_MIN  = 105;
 const BASE_SPEED      = 2.6;
@@ -366,7 +368,11 @@ export default function GliderGuy() {
       if (p.x < -PILLAR_W-10) g.pillars.splice(i,1);
     }
     for (const p of g.pillars) {
-      if (g.ply.x+13>p.x && g.ply.x-13<p.x+PILLAR_W && (g.ply.y-13<p.topH || g.ply.y+13>p.topH+p.gap)) { die(g); return; }
+      const hitX    = p.x + (PILLAR_W - PILLAR_HIT) / 2;
+      // shrink vertical hitbox inward by cap height on both sides
+      const hitTopY = p.topH - PILLAR_CAP_H;   // top pillar: cap hangs down, so collision ends higher
+      const hitBotY = p.topH + p.gap + PILLAR_CAP_H; // bottom pillar: cap sticks up, collision starts lower
+      if (g.ply.x+12>hitX && g.ply.x-12<hitX+PILLAR_HIT && (g.ply.y-12<hitTopY || g.ply.y+12>hitBotY)) { die(g); return; }
     }
 
     for (let i=g.particles.length-1;i>=0;i--) { const p=g.particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.22; p.life-=0.025; if(p.life<=0)g.particles.splice(i,1); }
@@ -399,17 +405,16 @@ export default function GliderGuy() {
     // ── FAR HILLS (15% scroll speed) ──
     if (IMGS.hillsFar) {
       const iw=IMGS.hillsFar.naturalWidth||1, ih=IMGS.hillsFar.naturalHeight||1;
-      // cap height at 55% of sky height so it's always visible
       const dh=Math.min((W/iw)*ih, groundY*0.55);
       const dy=groundY-dh, off=(scrollX*0.15)%W;
       for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsFar, i*W-off, dy, W, dh);
-      // fade top edge into sky
-      const fadeH=dh*0.35;
+      // fade top into sky by painting matching sky gradient over it
+      const fadeH=dh*0.4;
       const fadeG=ctx.createLinearGradient(0,dy,0,dy+fadeH);
-      fadeG.addColorStop(0,"rgba(0,0,0,1)"); fadeG.addColorStop(1,"rgba(0,0,0,0)");
-      ctx.globalCompositeOperation="destination-out";
+      fadeG.addColorStop(0,"rgba(4,8,15,1)");
+      fadeG.addColorStop(0.6,"rgba(4,8,15,0.6)");
+      fadeG.addColorStop(1,"rgba(4,8,15,0)");
       ctx.fillStyle=fadeG; ctx.fillRect(0,dy,W,fadeH);
-      ctx.globalCompositeOperation="source-over";
     } else {
       const hB=groundY, hMH=groundY*0.40;
       ctx.fillStyle="#0a0e0a";
@@ -427,17 +432,16 @@ export default function GliderGuy() {
     // ── NEAR HILLS (65% scroll speed) ──
     if (IMGS.hillsNear) {
       const iw=IMGS.hillsNear.naturalWidth||1, ih=IMGS.hillsNear.naturalHeight||1;
-      // cap height at 40% of sky height
       const dh=Math.min((W/iw)*ih, groundY*0.40);
       const dy=groundY-dh, off=(scrollX*0.65)%W;
       for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.hillsNear, i*W-off, dy, W, dh);
-      // fade top edge into sky — stronger fade than far hills
-      const fadeH=dh*0.45;
+      // stronger fade at top
+      const fadeH=dh*0.5;
       const fadeG=ctx.createLinearGradient(0,dy,0,dy+fadeH);
-      fadeG.addColorStop(0,"rgba(0,0,0,1)"); fadeG.addColorStop(1,"rgba(0,0,0,0)");
-      ctx.globalCompositeOperation="destination-out";
+      fadeG.addColorStop(0,"rgba(4,8,15,1)");
+      fadeG.addColorStop(0.7,"rgba(4,8,15,0.5)");
+      fadeG.addColorStop(1,"rgba(4,8,15,0)");
       ctx.fillStyle=fadeG; ctx.fillRect(0,dy,W,fadeH);
-      ctx.globalCompositeOperation="source-over";
     } else {
       const hB=groundY, hMH=groundY*0.22;
       const off=(scrollX*0.65)%W;
@@ -464,13 +468,12 @@ export default function GliderGuy() {
       const dh=Math.min((W/iw)*ih, BTN_ZONE_H*1.5);
       const off=scrollX%W;
       for(let i=-1;i<=2;i++) ctx.drawImage(IMGS.ground, i*W-off, groundY, W, dh);
-      // fade top few pixels into the scene
-      const fadeH=Math.min(dh*0.3, 40);
+      // fade very top of ground into scene
+      const fadeH=Math.min(dh*0.25, 30);
       const fadeG=ctx.createLinearGradient(0,groundY,0,groundY+fadeH);
-      fadeG.addColorStop(0,"rgba(0,0,0,1)"); fadeG.addColorStop(1,"rgba(0,0,0,0)");
-      ctx.globalCompositeOperation="destination-out";
+      fadeG.addColorStop(0,"rgba(4,8,15,0.9)");
+      fadeG.addColorStop(1,"rgba(4,8,15,0)");
       ctx.fillStyle=fadeG; ctx.fillRect(0,groundY,W,fadeH);
-      ctx.globalCompositeOperation="source-over";
     } else {
       // dark cracked stone ground fallback
       const gG=ctx.createLinearGradient(0,groundY,0,H);
