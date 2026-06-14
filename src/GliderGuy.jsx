@@ -78,12 +78,11 @@ function rr(ctx,x,y,w,h,r=5){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+
 
 // ─── constants ───────────────────────────────────────────────
 const GRAVITY         = 0.32;
-const BTN_ZONE_H      = 110;   // bottom button zone height
 const PLY_X           = 0.22;
-const PILLAR_W        = 80;   // draw width
-const PILLAR_HIT      = 40;   // collision width (shaft only)
-const PILLAR_GAP_BASE = 155;
-const PILLAR_GAP_MIN  = 95;
+const PILLAR_W        = 80;
+const PILLAR_HIT      = 40;
+const PILLAR_CAP_TOP  = 60;
+const PILLAR_CAP_BOT  = 37;
 const BASE_SPEED      = 2.6;
 const MAX_SPEED       = 6.2;
 const TOP_N           = 50;
@@ -94,6 +93,10 @@ const CHECKOUT_URL    = "https://saltwolfgames.lemonsqueezy.com/checkout/buy/f04
 const MEDALS          = ["🥇","🥈","🥉"];
 const ff = "'Palatino Linotype','Georgia',serif";
 const ffUI = "'Palatino Linotype','Georgia',serif";
+// responsive values — scale with screen height
+const BTN_ZONE_H      = Math.min(130, Math.max(90, Math.round(window.innerHeight * 0.14)));
+const PILLAR_GAP_BASE = Math.round(window.innerHeight * 0.20);  // ~20% of screen height
+const PILLAR_GAP_MIN  = Math.round(window.innerHeight * 0.12);  // ~12% of screen height
 
 function gameSpeed(sc) { return Math.min(BASE_SPEED + sc * 0.11, MAX_SPEED); }
 function btnStyle(c1,c2,sh) { return { background:`linear-gradient(135deg,${c1},${c2})`, color:"#fff", border:"none", borderRadius:50, padding:"16px 48px", fontSize:20, fontWeight:900, letterSpacing:1, cursor:"pointer", boxShadow:`0 5px 0 ${sh},0 0 30px ${c1}88`, WebkitTapHighlightColor:"transparent", fontFamily:ff }; }
@@ -377,12 +380,13 @@ export default function GliderGuy() {
       if (p.x < -PILLAR_W-10) g.pillars.splice(i,1);
     }
     for (const p of g.pillars) {
-      // pillar hitbox: centered horizontally on drawn pillar
       const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
-      // player hitbox: small circle at logical center (matches rider body in sprite)
-      const pr = 10; // player collision radius
+      // caps visually intrude into gap — collision boundary matches shaft end, not gap edge
+      const topCollision = p.topH - PILLAR_CAP_TOP;   // top pillar shaft ends here (cap hangs below)
+      const botCollision = p.topH + p.gap + PILLAR_CAP_BOT; // bottom pillar shaft starts here (cap above)
+      const pr = 10;
       if (g.ply.x+pr > hitX && g.ply.x-pr < hitX+PILLAR_HIT &&
-          (g.ply.y-pr < p.topH || g.ply.y+pr > p.topH+p.gap)) {
+          (g.ply.y-pr < topCollision || g.ply.y+pr > botCollision)) {
         die(g); return;
       }
     }
@@ -601,10 +605,19 @@ export default function GliderGuy() {
     const ctx=canvas.getContext("2d"); ctx.scale(pr,pr);
     const g=newGame(W,H); gRef.current=g;
     logSession();
-    loadImages(() => {
-      function loop(){ update(g); draw(ctx,g); rafRef.current=requestAnimationFrame(loop); }
+    // start loop immediately — images preloaded at module load so always ready
+    // but guard draw in case somehow not yet loaded
+    function loop(){
+      update(g);
+      if(imgsLoaded) draw(ctx,g);
       rafRef.current=requestAnimationFrame(loop);
-    });
+    }
+    // ensure images are loaded before first frame
+    if(imgsLoaded){
+      rafRef.current=requestAnimationFrame(loop);
+    } else {
+      loadImages(()=>{ rafRef.current=requestAnimationFrame(loop); });
+    }
   }
 
   function handlePlay() {
@@ -768,7 +781,7 @@ export default function GliderGuy() {
 
   // ── RENDER ───────────────────────────────────────────────────
   return (
-    <div style={{width:"100vw",height:"100dvh",background:"#040c14",position:"relative",userSelect:"none",WebkitUserSelect:"none",fontFamily:ff,overflow:"hidden"}}>
+    <div style={{width:"100vw",height:"100dvh",background:"#040c14",position:"relative",userSelect:"none",WebkitUserSelect:"none",fontFamily:ff,overflow:"hidden",paddingTop:"env(safe-area-inset-top)",paddingBottom:"env(safe-area-inset-bottom)",boxSizing:"border-box"}}>
       <audio ref={audioRef} loop preload="auto">
         <source src="/dark-ambience.ogg" type="audio/ogg"/>
         <source src="/dark-ambience.mp3" type="audio/mpeg"/>
@@ -849,7 +862,7 @@ export default function GliderGuy() {
       {/* ── MENU ── */}
       {screen==="menu" && (
         <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,#091830,#05101c)",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100%",padding:"60px 20px 40px",boxSizing:"border-box"}}>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",minHeight:"100%",padding:"max(60px, env(safe-area-inset-top)) 20px 40px",boxSizing:"border-box"}}>
             <MuteBtn/>
             <div onClick={handleBrandTap} style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:28,cursor:"default",WebkitTapHighlightColor:"transparent"}}>
               <img src={LOGO_SRC} alt="Salt Wolf Games" style={{width:126,height:"auto",display:"block"}}/>
@@ -907,7 +920,7 @@ export default function GliderGuy() {
 
       {/* ── DEAD ── */}
       {screen==="dead" && (
-        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",background:"linear-gradient(160deg,#091830ee,#05101cee)",padding:"28px 20px 40px"}}>
+        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",background:"linear-gradient(160deg,#091830ee,#05101cee)",padding:"max(28px, env(safe-area-inset-top)) 20px 40px"}}>
           <MuteBtn/>
           <div style={{background:"#ffffff0c",border:"1.5px solid #ffffff18",borderRadius:16,padding:"16px 52px",marginBottom:20,textAlign:"center"}}>
             <div style={{fontSize:11,color:"#6080a0",letterSpacing:3,textTransform:"uppercase"}}>Your Score</div>
