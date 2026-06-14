@@ -114,6 +114,8 @@ export default function GliderGuy() {
   const rafRef      = useRef(null);
   const bestRef     = useRef(0);
   const audioRef    = useRef(null);
+  const sfxRef      = useRef({});
+  const mutedRef    = useRef(false);
   const brandTapRef = useRef({count:0,timer:null});
   const bannerRef   = useRef(null);
   const gameCountRef= useRef(0);
@@ -156,7 +158,37 @@ export default function GliderGuy() {
     document.addEventListener("visibilitychange", onVis);
     return () => { document.removeEventListener("touchstart",tryPlay); document.removeEventListener("mousedown",tryPlay); document.removeEventListener("visibilitychange",onVis); };
   }, []);
-  function toggleMute() { const a=audioRef.current; if(!a) return; a.muted=!a.muted; setMuted(a.muted); }
+  function toggleMute() {
+    const a=audioRef.current; if(!a) return;
+    a.muted=!a.muted; mutedRef.current=a.muted; setMuted(a.muted);
+    Object.values(sfxRef.current).forEach(s=>{ if(s) s.muted=a.muted; });
+  }
+
+  // ── SFX preload ──────────────────────────────────────────────
+  useEffect(() => {
+    const sfxFiles = {
+      boost:     "/sfx/boost.wav",
+      score:     "/sfx/score.wav",
+      death:     "/sfx/death.wav",
+      countdown: "/sfx/countdown.wav",
+      top50:     "/sfx/top50.wav",
+    };
+    const sfx = {};
+    for (const [k, src] of Object.entries(sfxFiles)) {
+      const a = new Audio(src);
+      a.preload = "auto";
+      a.volume = k==="boost" ? 0.35 : k==="score" ? 0.5 : k==="death" ? 0.7 : k==="countdown" ? 0.6 : 0.8;
+      sfx[k] = a;
+    }
+    sfxRef.current = sfx;
+  }, []);
+
+  function playSfx(name) {
+    if (mutedRef.current) return;
+    const sfx = sfxRef.current[name];
+    if (!sfx) return;
+    try { sfx.currentTime=0; sfx.play().catch(()=>{}); } catch {}
+  }
 
   // ── offline queue monitor ────────────────────────────────────
   useEffect(() => {
@@ -278,11 +310,13 @@ export default function GliderGuy() {
   function boost() {
     if (!gRef.current || gRef.current.state !== "playing") return;
     gRef.current.ply.vy = Math.max(gRef.current.ply.vy - 7.5, -12);
+    playSfx("boost");
   }
 
   function die(g) {
     if (g.state !== "playing") return;
     g.state = "dead"; g.ply.dead = true;
+    playSfx("death");
     for (let i=0;i<32;i++) { const a=Math.random()*Math.PI*2,s=Math.random()*9+2; g.particles.push({x:g.ply.x,y:g.ply.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,r:Math.random()*10+4,hue:Math.random()*60+10}); }
     const sc=g.score, nb=Math.max(sc,bestRef.current); bestRef.current=nb; scoreRef.current=sc;
     gameCountRef.current++;
@@ -292,6 +326,7 @@ export default function GliderGuy() {
       setNameInput(""); setSubmitted(false); setSubmitting(false);
       const top = await checkIsTopScore(sc);
       setIsTopScore(top);
+      if (top) playSfx("top50");
       if (showAd) setShowInterstitial(true);
       else setScreen("dead");
     }, 700);
@@ -327,7 +362,7 @@ export default function GliderGuy() {
 
     for (let i=g.pillars.length-1; i>=0; i--) {
       const p=g.pillars[i]; p.x-=spd;
-      if (!p.passed && p.x+PILLAR_W < g.ply.x) { p.passed=true; g.score++; setDispScore(g.score); }
+      if (!p.passed && p.x+PILLAR_W < g.ply.x) { p.passed=true; g.score++; setDispScore(g.score); playSfx("score"); }
       if (p.x < -PILLAR_W-10) g.pillars.splice(i,1);
     }
     for (const p of g.pillars) {
@@ -561,9 +596,9 @@ export default function GliderGuy() {
     requestAnimationFrame(startGame);
     setTimeout(() => {
       if(gRef.current) gRef.current.state="countdown";
-      setCountdown(3); countdownRef.current=3;
-      setTimeout(()=>{ setCountdown(2); countdownRef.current=2; },1000);
-      setTimeout(()=>{ setCountdown(1); countdownRef.current=1; },2000);
+      setCountdown(3); countdownRef.current=3; playSfx("countdown");
+      setTimeout(()=>{ setCountdown(2); countdownRef.current=2; playSfx("countdown"); },1000);
+      setTimeout(()=>{ setCountdown(1); countdownRef.current=1; playSfx("countdown"); },2000);
       setTimeout(()=>{
         setCountdown(null); countdownRef.current=null;
         if(gRef.current) gRef.current.state="playing";
