@@ -71,7 +71,7 @@ function loadImages(cb) {
   }
 }
 // Preload immediately on module load so images are ready before first game
-loadImages(() => {});
+loadImages(() => { recalcPillarCaps(); });
 
 // ─── canvas rr ───────────────────────────────────────────────
 function rr(ctx,x,y,w,h,r=5){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
@@ -80,10 +80,19 @@ function rr(ctx,x,y,w,h,r=5){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+
 const GRAVITY         = 0.32;
 const PLY_X           = 0.22;
 const PILLAR_W        = 80;
-const PILLAR_HIT      = Math.round(80 * 0.54); // ~43px = actual shaft width
-const _PSCALE         = PILLAR_W / 199;
-const PILLAR_CAP_TOP  = Math.round(150 * _PSCALE);
-const PILLAR_CAP_BOT  = Math.round(91  * _PSCALE);
+const PILLAR_HIT      = Math.round(PILLAR_W * 0.54);
+// These get recalculated once image loads via getActualPillarCaps()
+let PILLAR_CAP_TOP = 60;
+let PILLAR_CAP_BOT = 37;
+function recalcPillarCaps() {
+  if (!IMGS.pillar) return;
+  const iw = IMGS.pillar.naturalWidth;
+  const ih = IMGS.pillar.naturalHeight;
+  const scale = PILLAR_W / iw;
+  PILLAR_CAP_TOP = Math.round(ih * 0.20 * scale);
+  PILLAR_CAP_BOT = Math.round(ih * 0.12 * scale);
+  console.log(`Pillar caps recalc: image=${iw}x${ih}, scale=${scale.toFixed(3)}, capTop=${PILLAR_CAP_TOP}, capBot=${PILLAR_CAP_BOT}`);
+}
 const BASE_SPEED      = 2.6;
 const MAX_SPEED       = 6.2;
 const TOP_N           = 50;
@@ -95,8 +104,10 @@ const MEDALS          = ["🥇","🥈","🥉"];
 const ff = "'Palatino Linotype','Georgia',serif";
 const ffUI = "'Palatino Linotype','Georgia',serif";
 const BTN_ZONE_H      = Math.min(130, Math.max(90, Math.round(window.innerHeight * 0.14)));
-const PILLAR_GAP_BASE = Math.round(window.innerHeight * 0.22);
-const PILLAR_GAP_MIN  = Math.round(window.innerHeight * 0.14);
+// Gap in CSS pixels — spawnPillar divides by devicePixelRatio to compensate
+const _PR             = Math.min(window.devicePixelRatio || 1, 2);
+const PILLAR_GAP_BASE = Math.round(window.innerHeight * 0.22 * _PR);
+const PILLAR_GAP_MIN  = Math.round(window.innerHeight * 0.14 * _PR);
 
 function gameSpeed(sc) { return Math.min(BASE_SPEED + sc * 0.11, MAX_SPEED); }
 function btnStyle(c1,c2,sh) { return { background:`linear-gradient(135deg,${c1},${c2})`, color:"#fff", border:"none", borderRadius:50, padding:"16px 48px", fontSize:20, fontWeight:900, letterSpacing:1, cursor:"pointer", boxShadow:`0 5px 0 ${sh},0 0 30px ${c1}88`, WebkitTapHighlightColor:"transparent", fontFamily:ff }; }
@@ -519,20 +530,20 @@ export default function GliderGuy() {
         if (IMGS.pillar) console.log(`Pillar image: ${IMGS.pillar.naturalWidth}x${IMGS.pillar.naturalHeight}`);
       }
       if (IMGS.pillar) {
-        const iw = IMGS.pillar.naturalWidth  || 199;
-        const ih = IMGS.pillar.naturalHeight || 751;
+        const iw = IMGS.pillar.naturalWidth;
+        const ih = IMGS.pillar.naturalHeight;
 
-        // top pillar: draw full image flipped vertically, filling 0..p.topH exactly
+        // top pillar: flipped so cap faces down into gap, fills 0..p.topH
         if (p.topH > 0) {
           ctx.save();
           ctx.beginPath(); ctx.rect(p.x, 0, PILLAR_W, p.topH); ctx.clip();
-          ctx.translate(p.x, p.topH);
+          ctx.translate(p.x + PILLAR_W/2, p.topH/2);
           ctx.scale(1, -1);
-          ctx.drawImage(IMGS.pillar, 0, 0, iw, ih, 0, 0, PILLAR_W, p.topH);
+          ctx.drawImage(IMGS.pillar, 0, 0, iw, ih, -PILLAR_W/2, -p.topH/2, PILLAR_W, p.topH);
           ctx.restore();
         }
 
-        // bottom pillar: draw full image normally, filling botY..H exactly
+        // bottom pillar: normal, cap faces up, fills botY..H
         if (botH > 0) {
           ctx.save();
           ctx.beginPath(); ctx.rect(p.x, botY, PILLAR_W, botH); ctx.clip();
