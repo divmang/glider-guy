@@ -384,12 +384,10 @@ export default function GliderGuy() {
     }
     for (const p of g.pillars) {
       const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
-      // caps visually intrude into gap — collision boundary matches shaft end, not gap edge
-      const topCollision = p.topH - PILLAR_CAP_TOP;   // top pillar shaft ends here (cap hangs below)
-      const botCollision = p.topH + p.gap + PILLAR_CAP_BOT; // bottom pillar shaft starts here (cap above)
       const pr = 10;
+      // collision matches the logical gap boundaries exactly
       if (g.ply.x+pr > hitX && g.ply.x-pr < hitX+PILLAR_HIT &&
-          (g.ply.y-pr < topCollision || g.ply.y+pr > botCollision)) {
+          (g.ply.y-pr < p.topH || g.ply.y+pr > p.topH+p.gap)) {
         die(g); return;
       }
     }
@@ -570,24 +568,19 @@ export default function GliderGuy() {
     if (DEBUG_HIT) {
       for (const p of pillars) {
         const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
-        const topCollision = p.topH - PILLAR_CAP_TOP;
-        const botCollision = p.topH + p.gap + PILLAR_CAP_BOT;
-
-        // full drawn pillar outline (orange) — what you actually see
+        // orange = full drawn pillar area
         ctx.strokeStyle="rgba(255,140,0,0.9)"; ctx.lineWidth=2;
-        ctx.strokeRect(p.x, 0, PILLAR_W, p.topH);              // top pillar drawn area
-        ctx.strokeRect(p.x, p.topH+p.gap, PILLAR_W, H-(p.topH+p.gap)); // bottom pillar drawn area
-
-        // collision hitbox (red) — where you actually die
+        ctx.strokeRect(p.x, 0, PILLAR_W, p.topH);
+        ctx.strokeRect(p.x, p.topH+p.gap, PILLAR_W, H-(p.topH+p.gap));
+        // red = collision hitbox
         ctx.strokeStyle="rgba(255,0,0,0.9)"; ctx.lineWidth=2;
-        ctx.strokeRect(hitX, 0, PILLAR_HIT, topCollision);       // top shaft hitbox
-        ctx.strokeRect(hitX, botCollision, PILLAR_HIT, H-botCollision); // bottom shaft hitbox
-
-        // safe gap (green)
+        ctx.strokeRect(hitX, 0, PILLAR_HIT, p.topH);
+        ctx.strokeRect(hitX, p.topH+p.gap, PILLAR_HIT, H-(p.topH+p.gap));
+        // green = safe gap
         ctx.strokeStyle="rgba(0,255,0,0.7)"; ctx.lineWidth=1;
-        ctx.strokeRect(hitX, topCollision, PILLAR_HIT, botCollision-topCollision);
+        ctx.strokeRect(hitX, p.topH, PILLAR_HIT, p.gap);
       }
-      // player hitbox (yellow)
+      // yellow = player
       ctx.strokeStyle="rgba(255,255,0,0.9)"; ctx.lineWidth=2;
       ctx.beginPath(); ctx.arc(ply.x, ply.y, 10, 0, Math.PI*2); ctx.stroke();
     }
