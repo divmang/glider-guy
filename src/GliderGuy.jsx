@@ -80,13 +80,10 @@ function rr(ctx,x,y,w,h,r=5){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+
 const GRAVITY         = 0.32;
 const PLY_X           = 0.22;
 const PILLAR_W        = 80;
-// Hitbox matches the shaft width (image is 199px wide, shaft is ~100px = 50% of width)
-const PILLAR_HIT      = Math.round(PILLAR_W * 0.50);
-// Cap heights computed from actual image proportions at drawn scale
-// Image: 199x751. Cap=top 20% (150px), Base=bottom 12% (91px). Scale=PILLAR_W/199
+const PILLAR_HIT      = Math.round(80 * 0.54); // ~43px = actual shaft width
 const _PSCALE         = PILLAR_W / 199;
-const PILLAR_CAP_TOP  = Math.round(150 * _PSCALE);  // ~60px
-const PILLAR_CAP_BOT  = Math.round(91  * _PSCALE);  // ~37px
+const PILLAR_CAP_TOP  = Math.round(150 * _PSCALE);
+const PILLAR_CAP_BOT  = Math.round(91  * _PSCALE);
 const BASE_SPEED      = 2.6;
 const MAX_SPEED       = 6.2;
 const TOP_N           = 50;
@@ -506,43 +503,30 @@ export default function GliderGuy() {
     ctx.fillStyle=btnG; ctx.fillRect(0,groundY,W,BTN_ZONE_H);
 
     // ── PILLARS ──
-    // helper defined outside loop (avoids hoisting bug)
-    const _drawPillarSlice = (() => {
-      let _iw,_ih,_capSrcH,_baseSrcY,_baseSrcH,_shaftSrcY,_shaftSrcH,_capH,_baseH;
-      return function init(img) {
-        _iw = img.naturalWidth||199; _ih = img.naturalHeight||751;
-        _capSrcH  = Math.floor(_ih*0.20);
-        _baseSrcY = Math.floor(_ih*0.88);
-        _baseSrcH = _ih - _baseSrcY;
-        _shaftSrcY= _capSrcH;
-        _shaftSrcH= _baseSrcY - _capSrcH;
-        const scale = PILLAR_W / _iw;
-        _capH  = Math.round(_capSrcH  * scale);
-        _baseH = Math.round(_baseSrcH * scale);
-        return function draw(destX, destY, destH, flipped) {
-          if (destH <= 0) return;
-          ctx.save();
-          ctx.beginPath(); ctx.rect(destX, destY, PILLAR_W, destH); ctx.clip();
-          ctx.translate(destX, flipped ? destY+destH : destY);
-          ctx.scale(1, flipped ? -1 : 1);
-          const drawnCapH = Math.min(_capH, destH);
-          ctx.drawImage(img, 0,0,_iw,_capSrcH, 0,0,PILLAR_W,drawnCapH);
-          const shaftH = Math.max(0, destH-_capH-_baseH);
-          if (shaftH>0) ctx.drawImage(img, 0,_shaftSrcY,_iw,_shaftSrcH, 0,drawnCapH,PILLAR_W,shaftH);
-          if (destH-_baseH > drawnCapH) ctx.drawImage(img, 0,_baseSrcY,_iw,_baseSrcH, 0,destH-_baseH,PILLAR_W,_baseH);
-          ctx.restore();
-        };
-      };
-    })();
-
     for (const p of pillars) {
-      // bottom pillar goes all the way to H (full screen), not just groundY
       const botY = p.topH + p.gap;
-      const botH = H - botY;  // extends behind button zone to screen bottom
+      const botH = H - botY;
       if (IMGS.pillar) {
-        const drawPillar = _drawPillarSlice(IMGS.pillar);
-        if (p.topH > 0) drawPillar(p.x, 0, p.topH, true);
-        if (botH > 0)   drawPillar(p.x, botY, botH, false);
+        const iw = IMGS.pillar.naturalWidth  || 199;
+        const ih = IMGS.pillar.naturalHeight || 751;
+
+        // top pillar: draw full image flipped vertically, filling 0..p.topH exactly
+        if (p.topH > 0) {
+          ctx.save();
+          ctx.beginPath(); ctx.rect(p.x, 0, PILLAR_W, p.topH); ctx.clip();
+          ctx.translate(p.x, p.topH);
+          ctx.scale(1, -1);
+          ctx.drawImage(IMGS.pillar, 0, 0, iw, ih, 0, 0, PILLAR_W, p.topH);
+          ctx.restore();
+        }
+
+        // bottom pillar: draw full image normally, filling botY..H exactly
+        if (botH > 0) {
+          ctx.save();
+          ctx.beginPath(); ctx.rect(p.x, botY, PILLAR_W, botH); ctx.clip();
+          ctx.drawImage(IMGS.pillar, 0, 0, iw, ih, p.x, botY, PILLAR_W, botH);
+          ctx.restore();
+        }
       } else {
         // dark stone pillar fallback
         const pb=(px,py,ph)=>{
