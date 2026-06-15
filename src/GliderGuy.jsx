@@ -104,10 +104,10 @@ const MEDALS          = ["🥇","🥈","🥉"];
 const ff = "'Palatino Linotype','Georgia',serif";
 const ffUI = "'Palatino Linotype','Georgia',serif";
 const BTN_ZONE_H      = Math.min(130, Math.max(90, Math.round(window.innerHeight * 0.14)));
-// Gap in CSS pixels — spawnPillar divides by devicePixelRatio to compensate
-const _PR             = Math.min(window.devicePixelRatio || 1, 2);
-const PILLAR_GAP_BASE = Math.round(window.innerHeight * 0.22 * _PR);
-const PILLAR_GAP_MIN  = Math.round(window.innerHeight * 0.14 * _PR);
+// Gap in canvas pixels — canvas W/H already include devicePixelRatio from startGame
+// Use fixed pixel values that work well visually
+const PILLAR_GAP_BASE = 190;
+const PILLAR_GAP_MIN  = 120;
 
 function gameSpeed(sc) { return Math.min(BASE_SPEED + sc * 0.11, MAX_SPEED); }
 function btnStyle(c1,c2,sh) { return { background:`linear-gradient(135deg,${c1},${c2})`, color:"#fff", border:"none", borderRadius:50, padding:"16px 48px", fontSize:20, fontWeight:900, letterSpacing:1, cursor:"pointer", boxShadow:`0 5px 0 ${sh},0 0 30px ${c1}88`, WebkitTapHighlightColor:"transparent", fontFamily:ff }; }
@@ -523,33 +523,55 @@ export default function GliderGuy() {
       if (!_pillarLogged && g.frame % 60 === 0) {
         _pillarLogged = true;
         const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
+        const pr = window.devicePixelRatio || 1;
         console.log("=== PILLAR DEBUG ===");
-        console.log(`Orange box (drawn): x=${p.x}, w=${PILLAR_W}, topH=${p.topH.toFixed(0)}, botY=${botY.toFixed(0)}, botH=${botH.toFixed(0)}`);
-        console.log(`Red box (hitbox):   x=${hitX.toFixed(0)}, w=${PILLAR_HIT}, topH=${p.topH.toFixed(0)}, botY=${botY.toFixed(0)}, botH=${botH.toFixed(0)}`);
-        console.log(`Canvas H=${H}, groundY=${H-BTN_ZONE_H}, gap=${p.gap.toFixed(0)}`);
-        if (IMGS.pillar) console.log(`Pillar image: ${IMGS.pillar.naturalWidth}x${IMGS.pillar.naturalHeight}`);
+        console.log(`Canvas: ${W}x${H} (CSS: ${W/pr}x${H/pr}), DPR=${pr}`);
+        console.log(`Gap: ${p.gap.toFixed(0)}px canvas = ${(p.gap/pr).toFixed(0)}px CSS`);
+        console.log(`Orange: x=${p.x.toFixed(0)}, w=${PILLAR_W}, topH=${p.topH.toFixed(0)}`);
+        console.log(`Red:    x=${hitX.toFixed(0)}, w=${PILLAR_HIT}`);
+        if (IMGS.pillar) {
+          const iw=IMGS.pillar.naturalWidth, ih=IMGS.pillar.naturalHeight;
+          const sc=PILLAR_W/iw;
+          console.log(`Image: ${iw}x${ih}, scale=${sc.toFixed(3)}, capH=${Math.round(ih*0.20*sc)}, baseH=${Math.round(ih*0.12*sc)}`);
+        }
       }
       if (IMGS.pillar) {
         const iw = IMGS.pillar.naturalWidth;
         const ih = IMGS.pillar.naturalHeight;
+        const scale = PILLAR_W / iw;
+        const capSrcH   = Math.round(ih * 0.20);   // top 20% = cap
+        const baseSrcY  = Math.round(ih * 0.88);   // bottom 12% = base
+        const baseSrcH  = ih - baseSrcY;
+        const shaftSrcY = capSrcH;
+        const shaftSrcH = baseSrcY - capSrcH;
+        const capH      = Math.round(capSrcH  * scale);
+        const baseH     = Math.round(baseSrcH * scale);
 
-        // top pillar: flipped so cap faces down into gap, fills 0..p.topH
-        if (p.topH > 0) {
+        function slice(destX, destY, destH, flip) {
+          if (destH <= 0) return;
           ctx.save();
-          ctx.beginPath(); ctx.rect(p.x, 0, PILLAR_W, p.topH); ctx.clip();
-          ctx.translate(p.x + PILLAR_W/2, p.topH/2);
-          ctx.scale(1, -1);
-          ctx.drawImage(IMGS.pillar, 0, 0, iw, ih, -PILLAR_W/2, -p.topH/2, PILLAR_W, p.topH);
+          ctx.beginPath(); ctx.rect(destX, destY, PILLAR_W, destH); ctx.clip();
+          if (flip) {
+            ctx.translate(destX, destY + destH);
+            ctx.scale(1, -1);
+          } else {
+            ctx.translate(destX, destY);
+          }
+          // cap (fixed height)
+          const dc = Math.min(capH, destH);
+          ctx.drawImage(IMGS.pillar, 0, 0, iw, capSrcH, 0, 0, PILLAR_W, dc);
+          // shaft (stretches)
+          const shaftH = Math.max(0, destH - capH - baseH);
+          if (shaftH > 0)
+            ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, 0, dc, PILLAR_W, shaftH);
+          // base (fixed height)
+          if (destH - baseH > dc)
+            ctx.drawImage(IMGS.pillar, 0, baseSrcY, iw, baseSrcH, 0, destH - baseH, PILLAR_W, baseH);
           ctx.restore();
         }
 
-        // bottom pillar: normal, cap faces up, fills botY..H
-        if (botH > 0) {
-          ctx.save();
-          ctx.beginPath(); ctx.rect(p.x, botY, PILLAR_W, botH); ctx.clip();
-          ctx.drawImage(IMGS.pillar, 0, 0, iw, ih, p.x, botY, PILLAR_W, botH);
-          ctx.restore();
-        }
+        if (p.topH > 0) slice(p.x, 0,    p.topH, true);
+        if (botH   > 0) slice(p.x, botY, botH,   false);
       } else {
         // dark stone pillar fallback
         const pb=(px,py,ph)=>{
