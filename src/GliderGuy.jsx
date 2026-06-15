@@ -562,6 +562,28 @@ export default function GliderGuy() {
       }
     }
 
+    // ── DEBUG HITBOXES ──
+    const DEBUG_HIT = true;
+    if (DEBUG_HIT) {
+      // pillar hitboxes
+      for (const p of pillars) {
+        const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
+        const topCollision = p.topH - PILLAR_CAP_TOP;
+        const botCollision = p.topH + p.gap + PILLAR_CAP_BOT;
+        // top pillar shaft hitbox (red)
+        ctx.strokeStyle="rgba(255,0,0,0.9)"; ctx.lineWidth=2;
+        ctx.strokeRect(hitX, 0, PILLAR_HIT, topCollision);
+        // bottom pillar shaft hitbox (red)
+        ctx.strokeRect(hitX, botCollision, PILLAR_HIT, H - botCollision);
+        // gap safe zone (green)
+        ctx.strokeStyle="rgba(0,255,0,0.5)"; ctx.lineWidth=1;
+        ctx.strokeRect(hitX, topCollision, PILLAR_HIT, botCollision - topCollision);
+      }
+      // player hitbox (yellow circle)
+      ctx.strokeStyle="rgba(255,255,0,0.9)"; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(ply.x, ply.y, 10, 0, Math.PI*2); ctx.stroke();
+    }
+
     // ── PARTICLES ──
     for(const p of particles){ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=`hsl(${p.hue},80%,65%)`;ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();}
     ctx.globalAlpha=1;
