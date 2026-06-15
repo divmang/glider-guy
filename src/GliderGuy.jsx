@@ -503,9 +503,21 @@ export default function GliderGuy() {
     ctx.fillStyle=btnG; ctx.fillRect(0,groundY,W,BTN_ZONE_H);
 
     // ── PILLARS ──
+    let _pillarLogged = false;
     for (const p of pillars) {
       const botY = p.topH + p.gap;
       const botH = H - botY;
+
+      // log once per frame for first pillar
+      if (!_pillarLogged && g.frame % 60 === 0) {
+        _pillarLogged = true;
+        const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
+        console.log("=== PILLAR DEBUG ===");
+        console.log(`Orange box (drawn): x=${p.x}, w=${PILLAR_W}, topH=${p.topH.toFixed(0)}, botY=${botY.toFixed(0)}, botH=${botH.toFixed(0)}`);
+        console.log(`Red box (hitbox):   x=${hitX.toFixed(0)}, w=${PILLAR_HIT}, topH=${p.topH.toFixed(0)}, botY=${botY.toFixed(0)}, botH=${botH.toFixed(0)}`);
+        console.log(`Canvas H=${H}, groundY=${H-BTN_ZONE_H}, gap=${p.gap.toFixed(0)}`);
+        if (IMGS.pillar) console.log(`Pillar image: ${IMGS.pillar.naturalWidth}x${IMGS.pillar.naturalHeight}`);
+      }
       if (IMGS.pillar) {
         const iw = IMGS.pillar.naturalWidth  || 199;
         const ih = IMGS.pillar.naturalHeight || 751;
