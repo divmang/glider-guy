@@ -80,9 +80,13 @@ function rr(ctx,x,y,w,h,r=5){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+
 const GRAVITY         = 0.32;
 const PLY_X           = 0.22;
 const PILLAR_W        = 80;
-const PILLAR_HIT      = 40;
-const PILLAR_CAP_TOP  = 60;
-const PILLAR_CAP_BOT  = 37;
+// Hitbox matches the shaft width (image is 199px wide, shaft is ~100px = 50% of width)
+const PILLAR_HIT      = Math.round(PILLAR_W * 0.50);
+// Cap heights computed from actual image proportions at drawn scale
+// Image: 199x751. Cap=top 20% (150px), Base=bottom 12% (91px). Scale=PILLAR_W/199
+const _PSCALE         = PILLAR_W / 199;
+const PILLAR_CAP_TOP  = Math.round(150 * _PSCALE);  // ~60px
+const PILLAR_CAP_BOT  = Math.round(91  * _PSCALE);  // ~37px
 const BASE_SPEED      = 2.6;
 const MAX_SPEED       = 6.2;
 const TOP_N           = 50;
@@ -93,10 +97,9 @@ const CHECKOUT_URL    = "https://saltwolfgames.lemonsqueezy.com/checkout/buy/f04
 const MEDALS          = ["🥇","🥈","🥉"];
 const ff = "'Palatino Linotype','Georgia',serif";
 const ffUI = "'Palatino Linotype','Georgia',serif";
-// responsive values — scale with screen height
 const BTN_ZONE_H      = Math.min(130, Math.max(90, Math.round(window.innerHeight * 0.14)));
-const PILLAR_GAP_BASE = Math.round(window.innerHeight * 0.20);  // ~20% of screen height
-const PILLAR_GAP_MIN  = Math.round(window.innerHeight * 0.12);  // ~12% of screen height
+const PILLAR_GAP_BASE = Math.round(window.innerHeight * 0.22);
+const PILLAR_GAP_MIN  = Math.round(window.innerHeight * 0.14);
 
 function gameSpeed(sc) { return Math.min(BASE_SPEED + sc * 0.11, MAX_SPEED); }
 function btnStyle(c1,c2,sh) { return { background:`linear-gradient(135deg,${c1},${c2})`, color:"#fff", border:"none", borderRadius:50, padding:"16px 48px", fontSize:20, fontWeight:900, letterSpacing:1, cursor:"pointer", boxShadow:`0 5px 0 ${sh},0 0 30px ${c1}88`, WebkitTapHighlightColor:"transparent", fontFamily:ff }; }
@@ -565,21 +568,26 @@ export default function GliderGuy() {
     // ── DEBUG HITBOXES ──
     const DEBUG_HIT = true;
     if (DEBUG_HIT) {
-      // pillar hitboxes
       for (const p of pillars) {
         const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
         const topCollision = p.topH - PILLAR_CAP_TOP;
         const botCollision = p.topH + p.gap + PILLAR_CAP_BOT;
-        // top pillar shaft hitbox (red)
+
+        // full drawn pillar outline (orange) — what you actually see
+        ctx.strokeStyle="rgba(255,140,0,0.9)"; ctx.lineWidth=2;
+        ctx.strokeRect(p.x, 0, PILLAR_W, p.topH);              // top pillar drawn area
+        ctx.strokeRect(p.x, p.topH+p.gap, PILLAR_W, H-(p.topH+p.gap)); // bottom pillar drawn area
+
+        // collision hitbox (red) — where you actually die
         ctx.strokeStyle="rgba(255,0,0,0.9)"; ctx.lineWidth=2;
-        ctx.strokeRect(hitX, 0, PILLAR_HIT, topCollision);
-        // bottom pillar shaft hitbox (red)
-        ctx.strokeRect(hitX, botCollision, PILLAR_HIT, H - botCollision);
-        // gap safe zone (green)
-        ctx.strokeStyle="rgba(0,255,0,0.5)"; ctx.lineWidth=1;
-        ctx.strokeRect(hitX, topCollision, PILLAR_HIT, botCollision - topCollision);
+        ctx.strokeRect(hitX, 0, PILLAR_HIT, topCollision);       // top shaft hitbox
+        ctx.strokeRect(hitX, botCollision, PILLAR_HIT, H-botCollision); // bottom shaft hitbox
+
+        // safe gap (green)
+        ctx.strokeStyle="rgba(0,255,0,0.7)"; ctx.lineWidth=1;
+        ctx.strokeRect(hitX, topCollision, PILLAR_HIT, botCollision-topCollision);
       }
-      // player hitbox (yellow circle)
+      // player hitbox (yellow)
       ctx.strokeStyle="rgba(255,255,0,0.9)"; ctx.lineWidth=2;
       ctx.beginPath(); ctx.arc(ply.x, ply.y, 10, 0, Math.PI*2); ctx.stroke();
     }
