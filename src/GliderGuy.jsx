@@ -520,7 +520,6 @@ export default function GliderGuy() {
     ctx.fillStyle=btnG; ctx.fillRect(0,groundY,W,BTN_ZONE_H);
 
     // ── PILLARS ──
-    let _pillarLogged = false;
     for (const p of pillars) {
       const botY = p.topH + p.gap;
       const botH = H - botY;
@@ -528,11 +527,6 @@ export default function GliderGuy() {
       if (IMGS.pillar) {
         const iw = IMGS.pillar.naturalWidth;
         const ih = IMGS.pillar.naturalHeight;
-
-        if (!_pillarLogged && g.frame % 60 === 0) {
-          _pillarLogged = true;
-          console.log(`Pillar: ${iw}x${ih}, topH=${p.topH.toFixed(0)}, botY=${botY.toFixed(0)}, botH=${botH.toFixed(0)}, H=${H}`);
-        }
 
         // Draw whole image scaled to fit — image has no black padding
         if (p.topH > 0) {
@@ -563,24 +557,6 @@ export default function GliderGuy() {
         pb(p.x,0,p.topH); pc(p.x,p.topH-16);
         if(botH>0){pb(p.x,botY,botH);pc(p.x,botY);}
       }
-    }
-
-    // ── DEBUG HITBOXES ──
-    const DEBUG_HIT = true;
-    if (DEBUG_HIT) {
-      for (const p of pillars) {
-        const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
-        // red = collision hitbox
-        ctx.strokeStyle="rgba(255,0,0,0.9)"; ctx.lineWidth=2;
-        ctx.strokeRect(hitX, 0, PILLAR_HIT, p.topH);
-        ctx.strokeRect(hitX, p.topH+p.gap, PILLAR_HIT, H-(p.topH+p.gap));
-        // green = safe gap
-        ctx.strokeStyle="rgba(0,255,0,0.7)"; ctx.lineWidth=1;
-        ctx.strokeRect(hitX, p.topH, PILLAR_HIT, p.gap);
-      }
-      // yellow = player
-      ctx.strokeStyle="rgba(255,255,0,0.9)"; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(ply.x, ply.y, 10, 0, Math.PI*2); ctx.stroke();
     }
 
     // ── PARTICLES ──
@@ -836,8 +812,7 @@ export default function GliderGuy() {
         }}>
           {/* BOOST — round gothic button */}
           <button
-            onTouchStart={e=>{ e.preventDefault(); boost(); }}
-            onClick={e=>{ boost(); }}
+            onPointerDown={e=>{ e.preventDefault(); e.stopPropagation(); boost(); }}
             style={{
               width:80, height:80,
               borderRadius:"50%",
