@@ -544,27 +544,24 @@ export default function GliderGuy() {
           if (destH <= 0) return;
           ctx.save();
           ctx.beginPath(); ctx.rect(destX, destY, PILLAR_W, destH); ctx.clip();
+          ctx.translate(destX, destY);
           if (flip) {
-            ctx.translate(destX, destY + destH);
+            // flip vertically within the box: translate to bottom, scale -1
+            ctx.translate(0, destH);
             ctx.scale(1, -1);
-          } else {
-            ctx.translate(destX, destY);
           }
-          // After transform, draw from 0,0 filling destH exactly
-          const dc = Math.min(capH, destH);           // cap drawn height
-          const db = Math.min(baseH, destH - dc);     // base drawn height
-          const ds = Math.max(0, destH - dc - db);    // shaft drawn height
-
-          // cap at top (0..dc)
+          // Now draw from local (0,0) to (PILLAR_W, destH)
+          // For flip=false: local y=0 → screen destY, local y=destH → screen destY+destH ✓
+          // For flip=true:  local y=0 → screen destY+destH (bottom of box), local y=destH → screen destY ✓
+          const dc = Math.min(capH, destH);
+          const db = Math.min(baseH, destH - dc);
+          const ds = Math.max(0, destH - dc - db);
           if (dc > 0)
-            ctx.drawImage(IMGS.pillar, 0, 0, iw, capSrcH, 0, 0, PILLAR_W, dc);
-          // shaft in middle (dc..dc+ds)
+            ctx.drawImage(IMGS.pillar, 0, 0,       iw, capSrcH,   0, 0,      PILLAR_W, dc);
           if (ds > 0)
-            ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, 0, dc, PILLAR_W, ds);
-          // base at bottom (destH-db..destH)
+            ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, 0, dc,     PILLAR_W, ds);
           if (db > 0)
-            ctx.drawImage(IMGS.pillar, 0, baseSrcY, iw, baseSrcH, 0, destH - db, PILLAR_W, db);
-
+            ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  0, dc+ds,  PILLAR_W, db);
           ctx.restore();
         }
 
