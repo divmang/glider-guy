@@ -336,18 +336,15 @@ export default function GliderGuy() {
   }
 
   // ── BOOST (main button) ──────────────────────────────────────
-  const lastBoostRef = useRef(0);
+  const lastBoostRef  = useRef(0);
+  const boostPending  = useRef(false);
+
   function boost() {
     const now = Date.now();
     if (now - lastBoostRef.current < 80) return;
     lastBoostRef.current = now;
-    // schedule velocity change on next animation frame to avoid blocking the touch event
-    requestAnimationFrame(() => {
-      const g = gRef.current;
-      if (!g || g.state !== "playing") return;
-      g.ply.vy = Math.max(g.ply.vy - 7.5, -12);
-      playSfx("boost");
-    });
+    boostPending.current = true; // picked up by next update() call
+    playSfx("boost");
   }
 
   function die(g) {
@@ -388,6 +385,12 @@ export default function GliderGuy() {
       return;
     }
     if (g.state !== "playing") return;
+
+    // apply pending boost (set by button handler, consumed here in the game loop)
+    if (boostPending.current) {
+      boostPending.current = false;
+      g.ply.vy = Math.max(g.ply.vy - 7.5, -12);
+    }
 
     g.ply.vy = Math.min(g.ply.vy + GRAVITY, 14); g.ply.y += g.ply.vy;
     g.scrollX += gameSpeed(g.score);
@@ -608,20 +611,21 @@ export default function GliderGuy() {
   function startGame() {
     const canvas = canvasRef.current; if (!canvas) return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    // Force layout recalc before reading dimensions
-    const W = canvas.clientWidth || window.innerWidth;
-    const H = canvas.clientHeight || window.innerHeight;
     const pr = Math.min(window.devicePixelRatio || 1, 2);
+    const W  = Math.round(window.innerWidth);
+    const H  = Math.round(window.innerHeight);
     canvas.width  = W * pr;
     canvas.height = H * pr;
+    canvas.style.width  = W + "px";
+    canvas.style.height = H + "px";
     const ctx = canvas.getContext("2d");
     ctx.scale(pr, pr);
     const g = newGame(W, H);
     gRef.current = g;
     logSession();
     function loop() { update(g); if (imgsLoaded) draw(ctx, g); rafRef.current = requestAnimationFrame(loop); }
-    if (imgsLoaded) { rafRef.current = requestAnimationFrame(loop); }
-    else { loadImages(() => { rafRef.current = requestAnimationFrame(loop); }); }
+    if (imgsLoaded) rafRef.current = requestAnimationFrame(loop);
+    else loadImages(() => { rafRef.current = requestAnimationFrame(loop); });
   }
 
   function handlePlay() {
