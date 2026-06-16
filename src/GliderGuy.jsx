@@ -210,9 +210,13 @@ export default function GliderGuy() {
 
   function playSfx(name) {
     if (mutedRef.current) return;
-    const sfx = sfxRef.current[name];
-    if (!sfx) return;
-    try { sfx.currentTime=0; sfx.play().catch(()=>{}); } catch {}
+    // setTimeout(0) moves audio play off the current call stack
+    // preventing it from blocking requestAnimationFrame on iOS
+    setTimeout(() => {
+      const sfx = sfxRef.current[name];
+      if (!sfx) return;
+      try { sfx.currentTime = 0; sfx.play().catch(()=>{}); } catch {}
+    }, 0);
   }
 
   // ── offline queue monitor ────────────────────────────────────
@@ -334,14 +338,16 @@ export default function GliderGuy() {
   // ── BOOST (main button) ──────────────────────────────────────
   const lastBoostRef = useRef(0);
   function boost() {
-    const g = gRef.current;
-    if (!g || g.state !== "playing") return;
-    // throttle to prevent double-firing from touch+click
     const now = Date.now();
     if (now - lastBoostRef.current < 80) return;
     lastBoostRef.current = now;
-    g.ply.vy = Math.max(g.ply.vy - 7.5, -12);
-    playSfx("boost");
+    // schedule velocity change on next animation frame to avoid blocking the touch event
+    requestAnimationFrame(() => {
+      const g = gRef.current;
+      if (!g || g.state !== "playing") return;
+      g.ply.vy = Math.max(g.ply.vy - 7.5, -12);
+      playSfx("boost");
+    });
   }
 
   function die(g) {
@@ -393,7 +399,12 @@ export default function GliderGuy() {
 
     for (let i=g.pillars.length-1; i>=0; i--) {
       const p=g.pillars[i]; p.x-=spd;
-      if (!p.passed && p.x+PILLAR_W < g.ply.x) { p.passed=true; g.score++; setDispScore(g.score); playSfx("score"); }
+      if (!p.passed && p.x+PILLAR_W < g.ply.x) {
+        p.passed=true; g.score++;
+        // update display score via ref comparison to avoid triggering React re-render on every frame
+        if (g.score !== scoreRef.current) { scoreRef.current = g.score; setDispScore(g.score); }
+        playSfx("score");
+      }
       if (p.x < -PILLAR_W-10) g.pillars.splice(i,1);
     }
     for (const p of g.pillars) {
