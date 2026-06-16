@@ -520,21 +520,14 @@ export default function GliderGuy() {
       const botH = H - botY;
 
       // log once per frame for first pillar
-      if (!_pillarLogged && g.frame % 60 === 0) {
-        _pillarLogged = true;
-        const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
-        const pr = window.devicePixelRatio || 1;
-        console.log("=== PILLAR DEBUG ===");
-        console.log(`Canvas: ${W}x${H} (CSS: ${W/pr}x${H/pr}), DPR=${pr}`);
-        console.log(`Gap: ${p.gap.toFixed(0)}px canvas = ${(p.gap/pr).toFixed(0)}px CSS`);
-        console.log(`Orange: x=${p.x.toFixed(0)}, w=${PILLAR_W}, topH=${p.topH.toFixed(0)}`);
-        console.log(`Red:    x=${hitX.toFixed(0)}, w=${PILLAR_HIT}`);
-        if (IMGS.pillar) {
-          const iw=IMGS.pillar.naturalWidth, ih=IMGS.pillar.naturalHeight;
-          const sc=PILLAR_W/iw;
-          console.log(`Image: ${iw}x${ih}, scale=${sc.toFixed(3)}, capH=${Math.round(ih*0.20*sc)}, baseH=${Math.round(ih*0.12*sc)}`);
+        if (!_pillarLogged && g.frame % 60 === 0) {
+          _pillarLogged = true;
+          const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
+          const pr = window.devicePixelRatio || 1;
+          console.log(`Canvas: ${W}x${H} DPR=${pr}, Gap=${p.gap}canvas=${(p.gap/pr).toFixed(0)}CSS`);
+          console.log(`capH=${capH} baseH=${baseH} topH=${p.topH.toFixed(0)} shaft=${(p.topH-capH-baseH).toFixed(0)}`);
+          console.log(`cap+base+shaft = ${capH}+${baseH}+${(p.topH-capH-baseH).toFixed(0)} = ${(p.topH).toFixed(0)} (should = topH)`);
         }
-      }
       if (IMGS.pillar) {
         const iw = IMGS.pillar.naturalWidth;
         const ih = IMGS.pillar.naturalHeight;
@@ -557,16 +550,21 @@ export default function GliderGuy() {
           } else {
             ctx.translate(destX, destY);
           }
-          // cap (fixed height)
-          const dc = Math.min(capH, destH);
-          ctx.drawImage(IMGS.pillar, 0, 0, iw, capSrcH, 0, 0, PILLAR_W, dc);
-          // shaft (stretches)
-          const shaftH = Math.max(0, destH - capH - baseH);
-          if (shaftH > 0)
-            ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, 0, dc, PILLAR_W, shaftH);
-          // base (fixed height)
-          if (destH - baseH > dc)
-            ctx.drawImage(IMGS.pillar, 0, baseSrcY, iw, baseSrcH, 0, destH - baseH, PILLAR_W, baseH);
+          // After transform, draw from 0,0 filling destH exactly
+          const dc = Math.min(capH, destH);           // cap drawn height
+          const db = Math.min(baseH, destH - dc);     // base drawn height
+          const ds = Math.max(0, destH - dc - db);    // shaft drawn height
+
+          // cap at top (0..dc)
+          if (dc > 0)
+            ctx.drawImage(IMGS.pillar, 0, 0, iw, capSrcH, 0, 0, PILLAR_W, dc);
+          // shaft in middle (dc..dc+ds)
+          if (ds > 0)
+            ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, 0, dc, PILLAR_W, ds);
+          // base at bottom (destH-db..destH)
+          if (db > 0)
+            ctx.drawImage(IMGS.pillar, 0, baseSrcY, iw, baseSrcH, 0, destH - db, PILLAR_W, db);
+
           ctx.restore();
         }
 
@@ -597,10 +595,6 @@ export default function GliderGuy() {
     if (DEBUG_HIT) {
       for (const p of pillars) {
         const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
-        // orange = full drawn pillar area
-        ctx.strokeStyle="rgba(255,140,0,0.9)"; ctx.lineWidth=2;
-        ctx.strokeRect(p.x, 0, PILLAR_W, p.topH);
-        ctx.strokeRect(p.x, p.topH+p.gap, PILLAR_W, H-(p.topH+p.gap));
         // red = collision hitbox
         ctx.strokeStyle="rgba(255,0,0,0.9)"; ctx.lineWidth=2;
         ctx.strokeRect(hitX, 0, PILLAR_HIT, p.topH);
