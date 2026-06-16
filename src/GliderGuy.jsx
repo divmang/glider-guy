@@ -540,31 +540,31 @@ export default function GliderGuy() {
           console.log(`Sum: ${capH}+${baseH}+${(p.topH-capH-baseH).toFixed(0)} = ${p.topH.toFixed(0)} (should = topH)`);
         }
 
-        function slice(destX, destY, destH, flip) {
-          if (destH <= 0) return;
-          ctx.save();
-          ctx.beginPath(); ctx.rect(destX, destY, PILLAR_W, destH); ctx.clip();
+        // Draw pillar sections directly with absolute coordinates — no clip, no transforms
+        const dc = Math.min(capH, 9999);
+        const db = Math.min(baseH, 9999);
 
-          const dc = Math.min(capH, destH);
-          const db = Math.min(baseH, destH - dc);
-          const ds = Math.max(0, destH - dc - db);
-
-          if (!flip) {
-            // normal: cap at top, shaft middle, base at bottom
-            if (dc > 0) ctx.drawImage(IMGS.pillar, 0, 0,        iw, capSrcH,   destX, destY,          PILLAR_W, dc);
-            if (ds > 0) ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, destX, destY+dc,       PILLAR_W, ds);
-            if (db > 0) ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  destX, destY+dc+ds,    PILLAR_W, db);
-          } else {
-            // flipped: cap at BOTTOM (facing gap), base at TOP (at screen edge)
-            if (dc > 0) ctx.drawImage(IMGS.pillar, 0, 0,        iw, capSrcH,   destX, destY+destH-dc,  PILLAR_W, dc);
-            if (ds > 0) ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, destX, destY+db,        PILLAR_W, ds);
-            if (db > 0) ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  destX, destY,           PILLAR_W, db);
-          }
-          ctx.restore();
+        if (p.topH > 0) {
+          const destH = p.topH;
+          const ddc = Math.min(dc, destH);
+          const ddb = Math.min(db, destH - ddc);
+          const dds = Math.max(0, destH - ddc - ddb);
+          // top pillar flipped: base at y=0, shaft above cap, cap at bottom facing gap
+          if (ddb > 0) ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  p.x, 0,                  PILLAR_W, ddb);
+          if (dds > 0) ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, p.x, ddb,                 PILLAR_W, dds);
+          if (ddc > 0) ctx.drawImage(IMGS.pillar, 0, 0,         iw, capSrcH,   p.x, destH - ddc,         PILLAR_W, ddc);
         }
 
-        if (p.topH > 0) slice(p.x, 0,    p.topH, true);
-        if (botH   > 0) slice(p.x, botY, botH,   false);
+        if (botH > 0) {
+          const destH = botH;
+          const ddc = Math.min(dc, destH);
+          const ddb = Math.min(db, destH - ddc);
+          const dds = Math.max(0, destH - ddc - ddb);
+          // bottom pillar normal: cap at top facing gap, shaft, base at bottom
+          if (ddc > 0) ctx.drawImage(IMGS.pillar, 0, 0,         iw, capSrcH,   p.x, botY,                PILLAR_W, ddc);
+          if (dds > 0) ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, p.x, botY + ddc,          PILLAR_W, dds);
+          if (ddb > 0) ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  p.x, botY + ddc + dds,    PILLAR_W, ddb);
+        }
       } else {
         // dark stone pillar fallback
         const pb=(px,py,ph)=>{
@@ -860,7 +860,8 @@ export default function GliderGuy() {
         }}>
           {/* BOOST — round gothic button */}
           <button
-            onPointerDown={e=>{ e.preventDefault(); boost(); }}
+            onClick={boost}
+            onTouchStart={e=>{ e.preventDefault(); boost(); }}
             style={{
               width:80, height:80,
               borderRadius:"50%",
