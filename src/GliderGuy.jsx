@@ -332,9 +332,15 @@ export default function GliderGuy() {
   }
 
   // ── BOOST (main button) ──────────────────────────────────────
+  const lastBoostRef = useRef(0);
   function boost() {
-    if (!gRef.current || gRef.current.state !== "playing") return;
-    gRef.current.ply.vy = Math.max(gRef.current.ply.vy - 7.5, -12);
+    const g = gRef.current;
+    if (!g || g.state !== "playing") return;
+    // throttle to prevent double-firing from touch+click
+    const now = Date.now();
+    if (now - lastBoostRef.current < 80) return;
+    lastBoostRef.current = now;
+    g.ply.vy = Math.max(g.ply.vy - 7.5, -12);
     playSfx("boost");
   }
 
@@ -522,48 +528,22 @@ export default function GliderGuy() {
       if (IMGS.pillar) {
         const iw = IMGS.pillar.naturalWidth;
         const ih = IMGS.pillar.naturalHeight;
-        const scale = PILLAR_W / iw;
-        const capSrcH   = Math.round(ih * 0.20);
-        const baseSrcY  = Math.round(ih * 0.88);
-        const baseSrcH  = ih - baseSrcY;
-        const shaftSrcY = capSrcH;
-        const shaftSrcH = baseSrcY - capSrcH;
-        const capH      = Math.round(capSrcH  * scale);
-        const baseH     = Math.round(baseSrcH * scale);
 
-        // log once
         if (!_pillarLogged && g.frame % 60 === 0) {
           _pillarLogged = true;
-          const pr = window.devicePixelRatio || 1;
-          console.log(`Canvas: ${W}x${H} DPR=${pr}, Gap=${p.gap}canvas=${(p.gap/pr).toFixed(0)}CSS`);
-          console.log(`capH=${capH} baseH=${baseH} topH=${p.topH.toFixed(0)} shaft=${(p.topH-capH-baseH).toFixed(0)}`);
-          console.log(`Sum: ${capH}+${baseH}+${(p.topH-capH-baseH).toFixed(0)} = ${p.topH.toFixed(0)} (should = topH)`);
+          console.log(`Pillar: ${iw}x${ih}, topH=${p.topH.toFixed(0)}, botY=${botY.toFixed(0)}, botH=${botH.toFixed(0)}, H=${H}`);
         }
 
-        // Draw pillar sections directly with absolute coordinates — no clip, no transforms
-        const dc = Math.min(capH, 9999);
-        const db = Math.min(baseH, 9999);
-
+        // Draw whole image scaled to fit — image has no black padding
         if (p.topH > 0) {
-          const destH = p.topH;
-          const ddc = Math.min(dc, destH);
-          const ddb = Math.min(db, destH - ddc);
-          const dds = Math.max(0, destH - ddc - ddb);
-          // top pillar flipped: base at y=0, shaft above cap, cap at bottom facing gap
-          if (ddb > 0) ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  p.x, 0,                  PILLAR_W, ddb);
-          if (dds > 0) ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, p.x, ddb,                 PILLAR_W, dds);
-          if (ddc > 0) ctx.drawImage(IMGS.pillar, 0, 0,         iw, capSrcH,   p.x, destH - ddc,         PILLAR_W, ddc);
+          ctx.save();
+          ctx.translate(p.x, p.topH);
+          ctx.scale(1, -1);
+          ctx.drawImage(IMGS.pillar, 0, 0, iw, ih, 0, 0, PILLAR_W, p.topH);
+          ctx.restore();
         }
-
         if (botH > 0) {
-          const destH = botH;
-          const ddc = Math.min(dc, destH);
-          const ddb = Math.min(db, destH - ddc);
-          const dds = Math.max(0, destH - ddc - ddb);
-          // bottom pillar normal: cap at top facing gap, shaft, base at bottom
-          if (ddc > 0) ctx.drawImage(IMGS.pillar, 0, 0,         iw, capSrcH,   p.x, botY,                PILLAR_W, ddc);
-          if (dds > 0) ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, p.x, botY + ddc,          PILLAR_W, dds);
-          if (ddb > 0) ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  p.x, botY + ddc + dds,    PILLAR_W, ddb);
+          ctx.drawImage(IMGS.pillar, 0, 0, iw, ih, p.x, botY, PILLAR_W, botH);
         }
       } else {
         // dark stone pillar fallback
@@ -639,26 +619,22 @@ export default function GliderGuy() {
 
   // ── game loop ────────────────────────────────────────────────
   function startGame() {
-    const canvas=canvasRef.current; if(!canvas) return;
-    if(rafRef.current) cancelAnimationFrame(rafRef.current);
-    const pr=Math.min(window.devicePixelRatio||1,2), W=canvas.offsetWidth, H=canvas.offsetHeight;
-    canvas.width=W*pr; canvas.height=H*pr;
-    const ctx=canvas.getContext("2d"); ctx.scale(pr,pr);
-    const g=newGame(W,H); gRef.current=g;
+    const canvas = canvasRef.current; if (!canvas) return;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    // Force layout recalc before reading dimensions
+    const W = canvas.clientWidth || window.innerWidth;
+    const H = canvas.clientHeight || window.innerHeight;
+    const pr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width  = W * pr;
+    canvas.height = H * pr;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(pr, pr);
+    const g = newGame(W, H);
+    gRef.current = g;
     logSession();
-    // start loop immediately — images preloaded at module load so always ready
-    // but guard draw in case somehow not yet loaded
-    function loop(){
-      update(g);
-      if(imgsLoaded) draw(ctx,g);
-      rafRef.current=requestAnimationFrame(loop);
-    }
-    // ensure images are loaded before first frame
-    if(imgsLoaded){
-      rafRef.current=requestAnimationFrame(loop);
-    } else {
-      loadImages(()=>{ rafRef.current=requestAnimationFrame(loop); });
-    }
+    function loop() { update(g); if (imgsLoaded) draw(ctx, g); rafRef.current = requestAnimationFrame(loop); }
+    if (imgsLoaded) { rafRef.current = requestAnimationFrame(loop); }
+    else { loadImages(() => { rafRef.current = requestAnimationFrame(loop); }); }
   }
 
   function handlePlay() {
@@ -860,8 +836,8 @@ export default function GliderGuy() {
         }}>
           {/* BOOST — round gothic button */}
           <button
-            onClick={boost}
             onTouchStart={e=>{ e.preventDefault(); boost(); }}
+            onClick={e=>{ boost(); }}
             style={{
               width:80, height:80,
               borderRadius:"50%",
