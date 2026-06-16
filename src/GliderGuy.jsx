@@ -544,24 +544,22 @@ export default function GliderGuy() {
           if (destH <= 0) return;
           ctx.save();
           ctx.beginPath(); ctx.rect(destX, destY, PILLAR_W, destH); ctx.clip();
-          ctx.translate(destX, destY);
-          if (flip) {
-            // flip vertically within the box: translate to bottom, scale -1
-            ctx.translate(0, destH);
-            ctx.scale(1, -1);
-          }
-          // Now draw from local (0,0) to (PILLAR_W, destH)
-          // For flip=false: local y=0 → screen destY, local y=destH → screen destY+destH ✓
-          // For flip=true:  local y=0 → screen destY+destH (bottom of box), local y=destH → screen destY ✓
+
           const dc = Math.min(capH, destH);
           const db = Math.min(baseH, destH - dc);
           const ds = Math.max(0, destH - dc - db);
-          if (dc > 0)
-            ctx.drawImage(IMGS.pillar, 0, 0,       iw, capSrcH,   0, 0,      PILLAR_W, dc);
-          if (ds > 0)
-            ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, 0, dc,     PILLAR_W, ds);
-          if (db > 0)
-            ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  0, dc+ds,  PILLAR_W, db);
+
+          if (!flip) {
+            // normal: cap at top, shaft middle, base at bottom
+            if (dc > 0) ctx.drawImage(IMGS.pillar, 0, 0,        iw, capSrcH,   destX, destY,          PILLAR_W, dc);
+            if (ds > 0) ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, destX, destY+dc,       PILLAR_W, ds);
+            if (db > 0) ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  destX, destY+dc+ds,    PILLAR_W, db);
+          } else {
+            // flipped: cap at BOTTOM (facing gap), base at TOP (at screen edge)
+            if (dc > 0) ctx.drawImage(IMGS.pillar, 0, 0,        iw, capSrcH,   destX, destY+destH-dc,  PILLAR_W, dc);
+            if (ds > 0) ctx.drawImage(IMGS.pillar, 0, shaftSrcY, iw, shaftSrcH, destX, destY+db,        PILLAR_W, ds);
+            if (db > 0) ctx.drawImage(IMGS.pillar, 0, baseSrcY,  iw, baseSrcH,  destX, destY,           PILLAR_W, db);
+          }
           ctx.restore();
         }
 
