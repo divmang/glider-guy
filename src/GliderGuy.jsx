@@ -519,26 +519,26 @@ export default function GliderGuy() {
       const botY = p.topH + p.gap;
       const botH = H - botY;
 
-      // log once per frame for first pillar
-        if (!_pillarLogged && g.frame % 60 === 0) {
-          _pillarLogged = true;
-          const hitX = p.x + (PILLAR_W - PILLAR_HIT) / 2;
-          const pr = window.devicePixelRatio || 1;
-          console.log(`Canvas: ${W}x${H} DPR=${pr}, Gap=${p.gap}canvas=${(p.gap/pr).toFixed(0)}CSS`);
-          console.log(`capH=${capH} baseH=${baseH} topH=${p.topH.toFixed(0)} shaft=${(p.topH-capH-baseH).toFixed(0)}`);
-          console.log(`cap+base+shaft = ${capH}+${baseH}+${(p.topH-capH-baseH).toFixed(0)} = ${(p.topH).toFixed(0)} (should = topH)`);
-        }
       if (IMGS.pillar) {
         const iw = IMGS.pillar.naturalWidth;
         const ih = IMGS.pillar.naturalHeight;
         const scale = PILLAR_W / iw;
-        const capSrcH   = Math.round(ih * 0.20);   // top 20% = cap
-        const baseSrcY  = Math.round(ih * 0.88);   // bottom 12% = base
+        const capSrcH   = Math.round(ih * 0.20);
+        const baseSrcY  = Math.round(ih * 0.88);
         const baseSrcH  = ih - baseSrcY;
         const shaftSrcY = capSrcH;
         const shaftSrcH = baseSrcY - capSrcH;
         const capH      = Math.round(capSrcH  * scale);
         const baseH     = Math.round(baseSrcH * scale);
+
+        // log once
+        if (!_pillarLogged && g.frame % 60 === 0) {
+          _pillarLogged = true;
+          const pr = window.devicePixelRatio || 1;
+          console.log(`Canvas: ${W}x${H} DPR=${pr}, Gap=${p.gap}canvas=${(p.gap/pr).toFixed(0)}CSS`);
+          console.log(`capH=${capH} baseH=${baseH} topH=${p.topH.toFixed(0)} shaft=${(p.topH-capH-baseH).toFixed(0)}`);
+          console.log(`Sum: ${capH}+${baseH}+${(p.topH-capH-baseH).toFixed(0)} = ${p.topH.toFixed(0)} (should = topH)`);
+        }
 
         function slice(destX, destY, destH, flip) {
           if (destH <= 0) return;
